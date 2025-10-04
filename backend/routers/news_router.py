@@ -1,0 +1,12 @@
+from fastapi import APIRouter
+from parsers.interfax_parser.run import InterfaxParser
+from models.news_item import NewsItem
+from datetime import datetime
+
+router = APIRouter()
+
+@router.get("/news", response_model=list[NewsItem])
+async def get_news():
+    parser = InterfaxParser()
+    news = parser.parse(datetime.now(), datetime.now())
+    return news

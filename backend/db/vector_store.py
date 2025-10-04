@@ -1,4 +1,4 @@
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 import logging
 import psycopg2
 from psycopg2.extras import execute_values

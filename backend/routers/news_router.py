@@ -66,7 +66,7 @@ async def parse_period(parsing_source_schema: ParsingSourceSchema):
         )
     if parsing_source_schema.interfax_schema:
         news.extend(
-            await interfax_parser.parse(
+            interfax_parser.parse(
                 parsing_source_schema.interfax_schema.from_date,
                 parsing_source_schema.interfax_schema.to_date
             )

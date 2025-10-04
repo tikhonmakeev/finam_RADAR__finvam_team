@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Dict, List, Any, Optional
 import logging
@@ -119,7 +120,7 @@ class VectorStore:
                         datetime.now(),
                         metadata.hotnessScore,
                         metadata.isConfirmed,
-                        metadata.sources.model_dump()
+                        json.dumps(metadata.sources)
                     ))
 
                 row = cur.fetchone()

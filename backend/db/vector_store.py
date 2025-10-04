@@ -120,7 +120,7 @@ class VectorStore:
                         datetime.now(),
                         metadata.hotnessScore,
                         metadata.isConfirmed,
-                        json.dumps(metadata.sources)
+                        f"[{', '.join([source.model_dump_json() for source in metadata.sources])}]"
                     ))
 
                 row = cur.fetchone()

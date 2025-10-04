@@ -140,7 +140,6 @@ pycparser==2.22
 pycups==2.0.4
 pycurl==7.45.6
 Pygments==2.19.2
-PyGObject==3.52.3
 PyOpenGL==3.1.9
 pyparsing==3.2.4
 pyproject-api==1.9.1

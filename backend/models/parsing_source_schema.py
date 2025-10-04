@@ -15,5 +15,5 @@ class InterfaxSchema(BaseModel):
 
 
 class ParsingSourceSchema(BaseModel):
-    tg_schema: TgSchema | None
-    interfax_schema: InterfaxSchema | None
+    tg_schema: TgSchema | None = None
+    interfax_schema: InterfaxSchema | None = None

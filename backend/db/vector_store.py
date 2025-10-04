@@ -2,11 +2,11 @@ from typing import Dict, List, Any, Optional
 import logging
 import psycopg2
 from psycopg2.extras import execute_values
-from ai_model.embedder import Embedder
-from ai_model.rag_utils import chunk_text
-from models.news_filter import NewsFilter
-from models.news_item import NewsItem
-from config import settings
+from backend.ai_model.embedder import Embedder
+from backend.ai_model.rag_utils import chunk_text
+from backend.models.news_filter import NewsFilter
+from backend.models.news_item import NewsItem
+from backend.config import settings
 
 # Настройка логирования
 logger = logging.getLogger(__name__)

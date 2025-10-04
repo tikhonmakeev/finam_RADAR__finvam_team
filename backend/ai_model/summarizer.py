@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
-from ai_model.llm_client import LocalLLMClient
+from backend.ai_model.llm_client import LocalLLMClient
+from backend.ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as NEWS_STYLE_PROMPT
 
 # Настройка логирования
 logging.basicConfig(
@@ -14,7 +15,6 @@ PROMPTS_DIR = Path(__file__).parent / 'prompts'
 
 try:
     # Импортируем системный промпт для стиля новостей
-    from ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as NEWS_STYLE_PROMPT
     logger.info("Промпт для стиля новостей успешно загружен")
 except Exception as e:
     logger.error(f"Не удалось загрузить промпт для стиля новостей: {str(e)}")

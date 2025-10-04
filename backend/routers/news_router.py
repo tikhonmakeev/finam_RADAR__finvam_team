@@ -3,7 +3,7 @@ from http import HTTPStatus
 from fastapi import APIRouter
 from fastapi.params import Query
 
-from main import vector_store, parser
+from dependencies import vector_store, parser
 from models.news_filter import NewsFilter
 from models.news_item import NewsItem
 from datetime import datetime

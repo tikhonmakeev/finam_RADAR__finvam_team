@@ -1,10 +1,24 @@
 @if (news()) {
-    <span>{{ news().hotnessScore }}</span>
-    <span>{{ news().isConfirmed ? 'достоверно' : 'не проверено' }}</span>
-    <h1>{{ news().title }}</h1>
-    <p>{{ news().content }}</p>
-    <h3>Источники</h3>
-    @for (source of news().sources; track $index) {
-        <a href="{{ source.url }}" target="_blank">{{ source.url }}</a>
-    }
+<div class="top-part">
+  <div
+    class="hotness"
+    [ngClass]="news().hotnessScore >= 75 ? '--red' : (news().hotnessScore >= 50 ? '--orange' : '--green')"
+  >
+    <span class="hotness-score">{{ news().hotnessScore }}</span>
+  </div>
+  <h1 class="title">{{ news().title }}</h1>
+  <span
+    class="confirmed-status"
+    [ngClass]="news().isConfirmed ? '--green' : '--orange'"
+    >{{ news().isConfirmed ? "достоверно" : "не проверено" }}</span
+  >
+  <span class="updated-at">{{ news().updatedAt | date }}</span>
+</div>
+<p class="content">{{ news().content }}</p>
+<div class="sources">
+  <h3>Источники</h3>
+  @for (source of news().sources; track $index) {
+  <p><a href="{{ source.url }}" target="_blank">{{ source.url }}</a> - {{ source.addedAt | date }}</p>
+  }
+</div>
 }

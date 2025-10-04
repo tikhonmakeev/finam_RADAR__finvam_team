@@ -154,7 +154,6 @@ pytest-cov==6.1.1
 pytest-mock==3.14.0
 python-dateutil==2.9.0
 pytz==2025.2
-PyYAML==6.0.2
 pyzmq==27.1.0
 readme_renderer==44.0
 regex==2025.9.18

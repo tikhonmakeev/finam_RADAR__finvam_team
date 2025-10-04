@@ -1,12 +1,43 @@
-<tui-scrollbar class="news-feed__scroll-container">
+<div class="page-layout">
+  <tui-scrollbar class="news-feed__scroll-container">
     <div class="news-feed">
-        <div class="news-feed__news">
-            @for (news of newsList; track news.id) {
-                <app-news-card [news]="news"></app-news-card>
-            }
-            @empty {
-                <p>No news available.</p>
-            }
-        </div>
+      <div class="news-feed__news">
+        @for (news of newsList; track news.id) {
+        <app-news-card [news]="news"></app-news-card>
+        } @empty {
+        <p>No news available.</p>
+        }
+      </div>
     </div>
-</tui-scrollbar>
+  </tui-scrollbar>
+
+  <div class="filters">
+    <form class="filters__groups" [formGroup]="filtersForm" (ngSubmit)="onFiltersSubmit()">
+      <h3 class="filters__title">Фильтры</h3>
+      <div class="filters__group">
+        <h3 class="filters__group-label">Теги</h3>
+        @for (tag of tags; track $index) {
+        <label class="filters__checkbox">
+          <input
+            type="checkbox"
+            size="s"
+            [value]="tag"
+            [checked]="filtersForm.get('selectedTags')?.value?.includes(tag)"
+            (change)="onTagChange(tag, $event.target.checked)"
+          />
+          <span>{{ tag }}</span>
+        </label>
+        }
+      </div>
+
+      <div class="filters__group">
+        <h3 class="filters__group-label">Достоверность</h3>
+        <label class="filters__checkbox">
+          <input type="checkbox" size="s" formControlName="onlyConfirmed" />
+          <span>Только проверенные</span>
+        </label>
+      </div>
+      <button tuiButton appearance="primary-grayscale" size="s" class="filters__submit" type="submit">Применить</button>
+    </form>
+  </div>
+</div>

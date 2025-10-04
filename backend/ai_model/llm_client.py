@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Конфигурация для локального LLM (Ollama/Пользовательский HTTP)
 LLM_API_URL = getattr(settings, 'LLM_API_URL', 'http://127.0.0.1:11434')
-MODEL_NAME = getattr(settings, 'LLM_MODEL_NAME', 'qwen2.5:7b')
+MODEL_NAME = getattr(settings, 'LLM_MODEL_NAME', 'qwen3:latest')
 
 
 class LocalLLMClient:
@@ -39,7 +39,7 @@ class LocalLLMClient:
         self, 
         prompt: str, 
         system: Optional[str] = None, 
-        max_tokens: int = 512,
+        max_tokens: int = 256,
         temperature: float = 0.7
     ) -> str:
         """Отправка сообщения в LLM и получение ответа.
@@ -81,22 +81,37 @@ class LocalLLMClient:
             response = self.session.post(
                 f"{self.base_url}/api/chat",
                 json=payload,
-                timeout=30  # Таймаут в секундах
+                timeout=500  # Увеличенный таймаут до 500 секунд
             )
             response.raise_for_status()  # Проверяем статус ответа
-            data = response.json()  # Парсим JSON-ответ
+            
+            # Пробуем распарсить JSON
+            try:
+                data = response.json()
+            except json.JSONDecodeError as e:
+                # Если не удалось распарсить JSON, возвращаем сырой текст
+                logger.warning(f"Не удалось распарсить JSON ответа. Сырой ответ: {response.text}")
+                return response.text.strip()
             
             # Обрабатываем различные форматы ответов от разных API
-            if 'message' in data and 'content' in data['message']:
-                return data['message']['content']
-            elif 'choices' in data and data['choices']:
-                return data['choices'][0]['message']['content']
-            elif 'text' in data:
-                return data['text']
-            else:
-                # Если формат ответа не распознан, логируем предупреждение
-                logger.warning(f"Неизвестный формат ответа: {data}")
-                return str(data)  # Возвращаем ответ как строку, если не удалось распарсить
+            try:
+                if isinstance(data, dict):
+                    if 'message' in data and isinstance(data['message'], dict) and 'content' in data['message']:
+                        return str(data['message']['content']).strip()
+                    elif 'choices' in data and isinstance(data['choices'], list) and data['choices']:
+                        choice = data['choices'][0]
+                        if isinstance(choice, dict) and 'message' in choice and 'content' in choice['message']:
+                            return str(choice['message']['content']).strip()
+                        return str(choice).strip()
+                    elif 'text' in data:
+                        return str(data['text']).strip()
+                
+                # Если формат ответа не распознан, возвращаем весь ответ как строку
+                return str(data).strip()
+                
+            except Exception as e:
+                logger.warning(f"Ошибка при обработке ответа: {str(e)}. Ответ: {data}")
+                return str(data).strip()
                 
         except RequestException as e:
             # Обработка ошибок сети и HTTP

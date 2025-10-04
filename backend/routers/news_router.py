@@ -18,7 +18,7 @@ async def get_news_item_by_id():
         id="1",
         title="Test",
         content="Вечером город окутан мягким светом фонарей, отражающихся в лужах после недавнего дождя. Люди спешат по тротуарам, спрятавшись под зонтиками, а запах свежей земли и мокрого асфальта смешивается с ароматом свежесваренного кофе из маленьких уличных кафешек. Кажется, что время замедлилось, и каждый звук — шаг, смех, скрип двери — становится особенным.",
-        sources=Source(link="t.me/tikhonmakeev", addedAt=datetime.now()),
+        sources=Source(url="t.me/tikhonmakeev", addedAt=datetime.now()),
         createdAt=datetime.now(),
         hotnessScore=80,
     )
@@ -43,7 +43,7 @@ async def get_news_items_by_filters(news_filter: NewsFilter = Query(None)):
             id=str(i),
             title=f"Test {i}",
             content=base_sentences[i - 1],
-            sources=[Source(link="t.me/tikhonmakeev", addedAt=datetime.now())],
+            sources=[Source(url="t.me/tikhonmakeev", addedAt=datetime.now())],
             createdAt=datetime.now(),
             hotnessScore=80,
         )

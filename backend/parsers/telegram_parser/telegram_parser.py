@@ -22,7 +22,7 @@ class TgParser(ParserBase):
         if self.client.is_connected():
             await self.client.disconnect()
 
-    async def parse(self, start_date: datetime, end_date: datetime, **kwargs) -> dict[str, NewsItem] | None:
+    def parse(self, start_date: datetime, end_date: datetime, **kwargs) -> dict[str, NewsItem] | None:
         if "channels_usernames" in kwargs:
             channels_usernames: list[str] = kwargs["channels_usernames"]
         else:

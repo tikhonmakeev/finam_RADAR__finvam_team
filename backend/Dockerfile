@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     libdbus-1-dev \
     libglib2.0-dev \
     libcairo2-dev \
+    gobject-introspection \
     libgirepository1.0-dev \
     gir1.2-gtk-3.0 \
     python3-dev \

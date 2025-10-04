@@ -57,7 +57,7 @@ async def parse_period(parsing_source_schema: ParsingSourceSchema):
     news = []
     if parsing_source_schema.tg_schema:
         news.extend(
-            tg_parser.parse(
+            await tg_parser.parse(
                 parsing_source_schema.tg_schema.from_date,
                 parsing_source_schema.tg_schema.to_date
             )

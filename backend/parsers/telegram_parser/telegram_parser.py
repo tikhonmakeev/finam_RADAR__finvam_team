@@ -4,10 +4,9 @@ from telethon import TelegramClient
 from datetime import datetime
 
 from models.news_item import NewsItem
-from parsers.parser_base import ParserBase
 
 
-class TgParser(ParserBase):
+class TgParser:
     def __init__(self):
         self.api_id = os.environ.get("tg_api_id")
         self.api_hash = os.environ.get("tg_api_hash")
@@ -22,7 +21,7 @@ class TgParser(ParserBase):
         if self.client.is_connected():
             await self.client.disconnect()
 
-    def parse(self, start_date: datetime, end_date: datetime, **kwargs) -> dict[str, NewsItem] | None:
+    async def parse(self, start_date: datetime, end_date: datetime, **kwargs) -> dict[str, NewsItem] | None:
         if "channels_usernames" in kwargs:
             channels_usernames: list[str] = kwargs["channels_usernames"]
         else:

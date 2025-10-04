@@ -1,6 +1,6 @@
-FROM scratch
+FROM alpine
 
 COPY . /app
 WORKDIR /app
 
-CMD ["echo 'r'"]
+CMD ["echo", "r"]

@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-dev \
     libcairo2-dev \
     libgirepository1.0-dev \
+    gir1.2-gtk-3.0 \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 

@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Any, Optional
 import logging
 import psycopg2
@@ -33,11 +34,11 @@ class VectorStore:
     def _get_db_connection(self):
         """Создание подключения к базе данных с использованием переменных окружения."""
         return psycopg2.connect(
-            dbname="your_db_name",
-            user="your_username",
-            password="your_password",
-            host="localhost",
-            port=5432
+            dbname=os.environ.get("POSTGRES_DB"),
+            user=os.environ.get("POSTGRES_USER"),
+            password=os.environ.get("POSTGRES_PASSWORD"),
+            host=os.environ.get("POSTGRES_HOST"),
+            port=os.environ.get("POSTGRES_PORT")
         )
 
     def _init_db(self):

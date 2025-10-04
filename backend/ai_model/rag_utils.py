@@ -28,10 +28,10 @@ def chunk_text(text: str, max_words: int = 250) -> List[str]:
         List[str]: Список текстовых чанков
         
     Пример:
-        >>> text = "Первое предложение. Второе предложение. Третье предложение."
-        >>> chunks = chunk_text(text, max_words=5)
-        >>> for chunk in chunks:
-        ...     print(f"Чанк: {chunk}")
+        text = "Первое предложение. Второе предложение. Третье предложение."
+        chunks = chunk_text(text, max_words=5)
+        for chunk in chunks:
+             print(f"Чанк: {chunk}")
     """
     if not text or not isinstance(text, str):
         logger.warning("Получен пустой или неверный текст для чанкинга")

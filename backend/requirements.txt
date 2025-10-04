@@ -6,7 +6,6 @@ pandas>=2.0.0
 torch>=2.0.0
 transformers>=4.30.0
 sentence-transformers>=2.2.2
-faiss-cpu>=1.7.4  # Используйте faiss-gpu для GPU ускорения
 scikit-learn>=1.2.0
 spacy>=3.5.0
 

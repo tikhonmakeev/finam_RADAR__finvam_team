@@ -1,156 +1,138 @@
-from typing import List, Sequence, Dict, Any
+from typing import List, Union, Dict, Any
 import numpy as np
 from sentence_transformers import SentenceTransformer
-import faiss
+import logging
 
-
-# Конфигурация модели для эмбеддингов
-EMBED_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-
+logger = logging.getLogger(__name__)
 
 class Embedder:
-    """Класс для работы с текстовыми эмбеддингами с использованием Sentence Transformers.
+    """Класс для генерации эмбеддингов текста с использованием sentence-transformers.
     
-    Атрибуты:
-        model: Модель SentenceTransformer для генерации эмбеддингов.
-        dim: Размерность выходных эмбеддингов.
+    Этот класс предоставляет методы для генерации эмбеддингов текста с использованием
+    предобученных моделей sentence transformer. Поддерживает как одиночные тексты, так и пакетную обработку.
     """
-    def __init__(self, model_name: str = EMBED_MODEL_NAME) -> None:
-        """Инициализация Embedder с предобученной моделью.
+    
+    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        """Инициализация эмбеддера с предобученной моделью.
         
-        Args:
-            model_name (str): Название предобученной модели для эмбеддингов.
-                            По умолчанию используется многоязычная модель.
+        Аргументы:
+            model_name: Название предобученной модели для генерации эмбеддингов.
         """
         self.model = SentenceTransformer(model_name)
+        logger.info(f"Инициализирован Embedder с моделью: {model_name}")
         self.dim = self.model.get_sentence_embedding_dimension()
-        print(f"Инициализирован эмбеддер с размерностью {self.dim}")
+        logger.info(f"Инициализирован эмбеддер с моделью {model_name} и размерностью {self.dim}")
 
-    def embed(self, texts: Sequence[str]) -> np.ndarray:
-        """Генерация эмбеддингов для последовательности текстов.
+    def embed(self, texts: Union[str, List[str]], batch_size: int = 32) -> np.ndarray:
+        """Генерирует эмбеддинги для одного текста или списка текстов.
         
-        Args:
-            texts (Sequence[str]): Последовательность текстовых строк для векторизации.
+        Аргументы:
+            texts: Одиночная строка текста или список строк для преобразования в эмбеддинги.
+            batch_size: Количество текстов для обработки в одном пакете.
             
-        Returns:
-            np.ndarray: Нормализованные эмбеддинги формы (количество_текстов, размерность_эмбеддинга).
-            
-        Пример:
-            >>> embedder = Embedder()
-            >>> embeddings = embedder.embed(["Пример текста", "Еще один текст"])
-            >>> embeddings.shape
-            (2, 384)  # Для модели с размерностью 384
+        Возвращает:
+            Массив numpy с эмбеддингами формы (количество_текстов, размерность_эмбеддинга).
+            Для одного текста возвращает двумерный массив формы (1, размерность_эмбеддинга).
         """
+        if isinstance(texts, str):
+            texts = [texts]
+            
         if not texts:
+            logger.warning("Получен пустой список текстов в методе embed()")
             return np.array([])
             
-        embs = self.model.encode(
-            list(texts),
-            convert_to_numpy=True,
-            show_progress_bar=False,
-            normalize_embeddings=True  # Автоматическая нормализация для косинусного сходства
-        )
-        return embs
+        try:
+            embeddings = self.model.encode(
+                texts,
+                batch_size=batch_size,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+                normalize_embeddings=True
+            )
+            return embeddings
+            
+        except Exception as e:
+            logger.error(f"Ошибка при генерации эмбеддингов: {str(e)}")
+            raise
 
-    def embed_one(self, text: str) -> np.ndarray:
+    def embed_single(self, text: str) -> np.ndarray:
         """Генерация эмбеддинга для одного текста.
         
-        Args:
-            text (str): Входной текст для векторизации.
+        Аргументы:
+            text: Текст для векторизации.
             
-        Returns:
-            np.ndarray: Нормализованный вектор эмбеддинга.
-            
-        Примечание:
-            Является оберткой над методом embed() для удобства работы с одиночными текстами.
+        Возвращает:
+            Векторное представление текста.
         """
         return self.embed([text])[0] if text else np.zeros(self.dim)
 
-
-class FaissIndex:
-    """Обертка над FAISS индексом для эффективного поиска похожих векторов.
-    
-    Атрибуты:
-        dim (int): Размерность векторов в индексе.
-        index: FAISS индекс для поиска похожих векторов.
-        metadatas: Список метаданных, соответствующих индексированным векторам.
-    """
-    def __init__(self, dim: int) -> None:
-        """Инициализация FAISS индекса.
+    @staticmethod
+    def cosine_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:
+        """Вычисляет косинусную близость между двумя эмбеддингами.
         
-        Args:
-            dim (int): Размерность индексируемых векторов.
+        Аргументы:
+            emb1: Первый вектор эмбеддинга.
+            emb2: Второй вектор эмбеддинга.
             
-        Примечание:
-            Использует косинусное сходство через скалярное произведение нормализованных векторов.
-        """
-        self.dim = dim
-        self.index = faiss.IndexFlatIP(dim)  # Скалярное произведение для нормализованных векторов = косинусное сходство
-        self.metadatas: List[Dict[str, Any]] = []
-        print(f"Инициализирован FAISS индекс с размерностью {dim}")
-
-    def add(self, vectors: np.ndarray, metadatas: List[Dict[str, Any]]) -> None:
-        """Добавление векторов и соответствующих метаданных в индекс.
-        
-        Args:
-            vectors (np.ndarray): Массив векторов для добавления в индекс.
-            metadatas (List[Dict[str, Any]]): Список словарей с метаданными для каждого вектора.
+        Возвращает:
+            Косинусная близость между эмбеддингами (диапазон: от -1 до 1).
             
         Исключения:
-            AssertionError: Если размерность векторов не соответствует размерности индекса.
-            
-        Пример:
-            >>> index = FaissIndex(384)
-            >>> vectors = np.random.rand(10, 384).astype('float32')
-            >>> metadatas = [{"id": i} for i in range(10)]
-            >>> index.add(vectors, metadatas)
+            ValueError: Если входные массивы имеют разную форму или не являются одномерными.
         """
-        if len(vectors) == 0:
-            return
+        if emb1.shape != emb2.shape:
+            raise ValueError(f"Несовпадение размерностей: {emb1.shape} и {emb2.shape}")
             
-        assert vectors.shape[1] == self.dim, \
-            f"Размерность вектора {vectors.shape[1]} не соответствует размерности индекса {self.dim}"
+        if emb1.ndim != 1 or emb2.ndim != 1:
+            raise ValueError("Входные массивы должны быть одномерными")
             
-        self.index.add(vectors)
-        self.metadatas.extend(metadatas)
+        # Вычисляем скалярное произведение и нормы векторов
+        dot_product = np.dot(emb1, emb2)
+        norm1 = np.linalg.norm(emb1)
+        norm2 = np.linalg.norm(emb2)
+        
+        # Избегаем деления на ноль
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+            
+        return float(dot_product / (norm1 * norm2))
 
-    def search(self, query: np.ndarray, top_k: int = 5) -> List[List[Dict[str, Any]]]:
+    def search(self, query: np.ndarray, vectors: np.ndarray, top_k: int = 5) -> List[List[Dict[str, Any]]]:
         """Поиск k ближайших соседей для запросных векторов.
         
-        Args:
-            query (np.ndarray): Запросные векторы формы (n_запросов, размерность).
-            top_k (int): Количество ближайших соседей для каждого запроса.
+        Аргументы:
+            query: Запросные векторы формы (n_запросов, размерность).
+            vectors: Векторы для поиска формы (n_векторов, размерность).
+            top_k: Количество ближайших соседей для каждого запроса.
             
-        Returns:
-            List[List[Dict[str, Any]]]: Список списков результатов поиска. Каждый внутренний список содержит
-                                     до top_k словарей с ключами 'score' (оценка сходства) и 'meta' (метаданные).
-                                     
-        Пример:
-            >>> index = FaissIndex(384)
-            >>> query_vector = np.random.rand(1, 384).astype('float32')
-            >>> results = index.search(query_vector, top_k=3)
-            >>> for result in results[0]:
-            ...     print(f"Сходство: {result['score']:.3f}, ID: {result['meta']['id']}")
+        Возвращает:
+            Список списков результатов поиска. Каждый внутренний список содержит
+            до top_k словарей с ключами 'score' (оценка сходства) и 'meta' (метаданные).
         """
         if len(query.shape) == 1:
             query = query.reshape(1, -1)
-            
-        # Выполняем поиск
-        scores, ids = self.index.search(query, top_k)
-        results = []
+        
+        # Вычисляем косинусное сходство между запросными векторами и векторами для поиска
+        scores = np.dot(query, vectors.T)
+        
+        # Нормализуем векторы, если они еще не нормализованы
+        query = query / np.linalg.norm(query, axis=1, keepdims=True)
+        vectors = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+        scores = np.dot(query, vectors.T)
+        
+        # Получаем индексы top_k ближайших соседей для каждого запроса
+        top_k_indices = np.argsort(-scores, axis=1)[:, :top_k]
         
         # Обрабатываем результаты для каждого запроса
+        results = []
         for i in range(query.shape[0]):
             row = []
-            # Обрабатываем каждый найденный результат
-            for score, idx in zip(scores[i], ids[i]):
-                if idx < 0 or idx >= len(self.metadatas):  # Пропускаем недопустимые индексы
-                    continue
-                meta = self.metadatas[idx]
+            for idx in top_k_indices[i]:
+                score = scores[i, idx]
                 row.append({
                     "score": float(score),  # Преобразуем в нативный float для сериализации
-                    "meta": meta
+                    "meta": {}  # Метаданные не переданы, поэтому используем пустой словарь
                 })
             results.append(row)
-            
+        
         return results

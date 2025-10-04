@@ -5,6 +5,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
+    gcc \
     pkg-config \
     liblensfun-dev \
     libdbus-1-dev \

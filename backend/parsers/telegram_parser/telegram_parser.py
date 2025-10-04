@@ -7,16 +7,18 @@ from datetime import datetime
 from models.news_item import NewsItem, Source
 
 
+SESSION_FILE = "user_session"
+
 class TgParser:
     def __init__(self):
         self.api_id = os.environ.get("tg_api_id")
         self.api_hash = os.environ.get("tg_api_hash")
 
-        self.client = TelegramClient("session", self.api_id, self.api_hash)
+        self.client = TelegramClient(SESSION_FILE, self.api_id, self.api_hash)
 
     async def connect(self):
         if not self.client.is_connected():
-            await self.client.start(bot_token=os.getenv("TG_BOT_TOKEN"))
+            await self.client.start()
 
     async def disconnect(self):
         if self.client.is_connected():

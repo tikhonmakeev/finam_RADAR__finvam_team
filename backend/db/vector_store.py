@@ -100,7 +100,7 @@ class VectorStore:
             if not chunks:
                 logger.warning(f"Не удалось создать фрагменты для новости с ID: {news_id}")
                 return
-                
+
             # Генерируем эмбеддинги для каждого фрагмента
             embeddings = self.embedder.embed(chunks)
             

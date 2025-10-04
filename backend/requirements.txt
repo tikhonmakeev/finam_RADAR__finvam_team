@@ -118,7 +118,7 @@ nh3==0.3.0
 npyscreen==4.10.5
 numpy==2.3.3
 packaging==25.0
-pacman_mirrors==5.1
+mirrors-countme==0.1.4
 pandas==2.3.1
 parso==0.8.5
 pathspec==0.12.1

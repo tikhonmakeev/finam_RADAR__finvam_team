@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, HttpUrl
 
 
 class Source(BaseModel):
-    url: HttpUrl
+    url: str
     addedAt: datetime
 
 class NewsItem(BaseModel):

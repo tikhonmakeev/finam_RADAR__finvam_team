@@ -74,4 +74,4 @@ uvicorn==0.35.0
 websockets==15.0.1
 wheel==0.45.1
 scrapy==2.13.3
-psycopg2_binary==2.9.10
+psycopg2-binary==2.9.10

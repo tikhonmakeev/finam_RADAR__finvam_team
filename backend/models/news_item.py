@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, HttpUrl
 
 
 class NewsItem(BaseModel):
-    id: str = Field(..., description="Уникальный идентификатор поста")
+    id: int = Field(..., description="Уникальный идентификатор поста")
     title: str = Field(..., description="Заголовок поста")
     content: str = Field(..., description="Основное содержимое поста")
     tags: list[str] = Field(default_factory=list, description="Массив тегов, связанных с постом")

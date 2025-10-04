@@ -9,7 +9,6 @@ from dependencies import tg_parser
 logger = logging.getLogger(__name__)
 logger.info("Starting application...")
 
-
 app = FastAPI(
     title="Finam RADAR backend",
     version="1.0.1",

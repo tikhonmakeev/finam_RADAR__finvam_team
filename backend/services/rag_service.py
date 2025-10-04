@@ -1,21 +1,17 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
-from backend.db.vector_store import VectorStore
-from backend.ai_model.summarizer import summarize_text
-from backend.ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as STYLE_PROMPT
-from backend.ai_model.llm_client import LocalLLMClient
-from backend.ai_model.compare import compare_news as llm_compare_news
+from ..db.vector_store import VectorStore
+from ..ai_model.summarizer import summarize_text
+from ..ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as STYLE_PROMPT
+from ..ai_model.llm_client import llm_client
+from ..ai_model.compare import compare_news as llm_compare_news
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize LLM client with error handling
-try:
-    llm = LocalLLMClient()
-except Exception as e:
-    logger.error(f"Failed to initialize LLM client: {str(e)}")
-    raise
+# Using the global llm_client instance
+logger.info("Using global LLM client")
 
 # Configuration
 VECTOR_DIM = 384  # Should match the embedder model's output dimension
@@ -28,8 +24,7 @@ except Exception as e:
     logger.error(f"Failed to initialize vector store: {str(e)}")
     raise
 
-
-def process_and_index(news_id: str, text: str, metadata: Dict[str, Any]) -> str:
+async def process_and_index(news_id: str, text: str, metadata: Dict[str, Any]) -> str:
     """Process and index a news article.
     
     Args:
@@ -52,15 +47,18 @@ def process_and_index(news_id: str, text: str, metadata: Dict[str, Any]) -> str:
         raise ValueError("metadata must be a dictionary")
     
     try:
-        # Generate summary
-        logger.info(f"Generating summary for news_id: {news_id}")
-        summary = summarize_text(text)
+        # Generate summary asynchronously
+        summary = await summarize_text(text)
         
-        # Update metadata with summary
-        metadata = metadata.copy()
-        metadata['summary'] = summary
-        
-        # Index the document
+        # Store in vector database
+        vector_store.upsert(
+            id=news_id,
+            text=text,
+            metadata={
+                **metadata,
+                'summary': summary or text[:500]  # Fallback to first 500 chars if summary is None
+            }
+        )# Index the document
         logger.debug(f"Indexing document: {news_id}")
         vector_store.index_news(news_id, text, metadata)
         
@@ -72,17 +70,17 @@ def process_and_index(news_id: str, text: str, metadata: Dict[str, Any]) -> str:
         raise RuntimeError(f"Failed to process and index document: {str(e)}")
 
 
-async def compare_news(news1: str, news2: str) -> dict:
+async def compare_news(news1: str, news2: str) -> Dict[str, Any]:
     """
     Compare two news articles using LLM-based analysis.
-    
+
     Args:
         news1: First news article text
         news2: Second news article text
-        
+
     Returns:
         dict: Comparison results including similarity score and analysis
-        
+
     Example:
         result = await compare_news("First news text...", "Second news text...")
         print(result["similarity"])
@@ -97,7 +95,7 @@ async def compare_news(news1: str, news2: str) -> dict:
         }
 
 
-def retrieve_and_normalize(text: str, top_k: int = 5) -> str:
+async def retrieve_and_normalize(text: str, top_k: int = 5) -> Optional[str]:
     """Retrieve relevant context and normalize the input text.
     
     Args:
@@ -140,11 +138,11 @@ def retrieve_and_normalize(text: str, top_k: int = 5) -> str:
         
         # Generate normalized output
         logger.info("Generating normalized output")
-        normalized = llm.chat(
+        normalized = await llm_client.generate_response(
             prompt=prompt,
-            system=STYLE_PROMPT,
-            max_tokens=1024,
-            temperature=0.3  # Lower temperature for more consistent style
+            system_prompt=STYLE_PROMPT,
+            temperature=0.3,  # Lower temperature for more consistent style
+            max_tokens=1024
         )
         
         return normalized.strip()

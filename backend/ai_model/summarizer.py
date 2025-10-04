@@ -1,6 +1,9 @@
 import logging
 from pathlib import Path
-from ai_model.llm_client import LocalLLMClient
+from typing import Optional
+
+from .llm_client import llm_client
+from .prompts.prompt_style_news import SYSTEM_PROMPT as NEWS_STYLE_PROMPT
 
 # Настройка логирования
 logging.basicConfig(
@@ -14,25 +17,18 @@ PROMPTS_DIR = Path(__file__).parent / 'prompts'
 
 try:
     # Импортируем системный промпт для стиля новостей
-    from ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as NEWS_STYLE_PROMPT
     logger.info("Промпт для стиля новостей успешно загружен")
 except Exception as e:
     logger.error(f"Не удалось загрузить промпт для стиля новостей: {str(e)}")
     raise
 
-# Инициализация клиента языковой модели
-try:
-    llm = LocalLLMClient()
-    logger.info("Клиент языковой модели успешно инициализирован")
-except Exception as e:
-    logger.error(f"Ошибка при инициализации клиента языковой модели: {str(e)}")
-    raise
+# Используем глобальный экземпляр llm_client
 
 # Максимальная длина текста для возврата в случае ошибки
 MAX_FALLBACK_LENGTH = 400
 
 
-def summarize_text(text: str, max_summary_length: int = 512) -> str:
+async def summarize_text(text: str, max_summary_length: int = 512) -> Optional[str]:
     """Генерирует краткое саммари входного текста на русском языке.
     
     Использует языковую модель для создания сжатого пересказа основного содержания текста
@@ -65,28 +61,26 @@ def summarize_text(text: str, max_summary_length: int = 512) -> str:
         return ""
     
     try:
-        # Отправляем запрос к языковой модели с предустановленным системным промптом
-        summary = llm.chat(
-            prompt=text,  # Сам текст новости как пользовательский промпт
-            system=NEWS_STYLE_PROMPT,  # Используем загруженный системный промпт
-            max_tokens=max_summary_length,
-            temperature=0.3  # Низкая температура для более детерминированного вывода
+        # Формируем промпт для суммаризации
+        prompt = (
+            f"Сократи следующий текст до {max_summary_length} токенов, сохраняя ключевые факты и смысл. "
+            f"Используй формальный стиль новостей. Текст: {text}"
         )
         
-        # Удаляем лишние пробелы и переносы строк
-        summary = summary.strip()
+        # Вызываем языковую модель асинхронно
+        summary = await llm_client.generate_response(
+            prompt=prompt,
+            system_prompt=NEWS_STYLE_PROMPT,
+            max_tokens=max_summary_length
+        )
         
-        # Логируем длину сгенерированного саммари
-        logger.debug(f"Сгенерировано саммари длиной {len(summary)} символов")
-        
-        return summary
+        # Проверяем результат
+        if not summary or len(summary.strip()) == 0:
+            logger.warning("Получен пустой ответ от языковой модели")
+            return text[:MAX_FALLBACK_LENGTH] + "..." if len(text) > MAX_FALLBACK_LENGTH else text
+        return summary.strip()
         
     except Exception as e:
-        # В случае ошибки логируем и возвращаем усеченный оригинальный текст
-        logger.error(f"Ошибка при генерации саммари: {str(e)}")
-        
-        # Возвращаем усеченный текст, разбивая по последнему пробелу перед лимитом
-        text = text.strip()
-        if len(text) > MAX_FALLBACK_LENGTH:
-            return text[:MAX_FALLBACK_LENGTH].rsplit(' ', 1)[0] + '...'
-        return text
+        logger.error(f"Ошибка при генерации саммари: {str(e)}", exc_info=True)
+        # Возвращаем усеченный оригинальный текст в случае ошибки
+        return text[:MAX_FALLBACK_LENGTH] + "..." if len(text) > MAX_FALLBACK_LENGTH else text

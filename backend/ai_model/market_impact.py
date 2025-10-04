@@ -1,6 +1,6 @@
 import logging
 from backend.ai_model.llm_client import LocalLLMClient
-from backend.ai_model.prompts.prompt_market_impact import SYSTEM_PROMPT as MARKET_IMPACT_PROMPT
+from backend.ai_model.prompts.prompt_market_impact import SYSTEM_PROMPT_MARKET_IMPACT as MARKET_IMPACT_PROMPT
 
 # Логирование
 logging.basicConfig(

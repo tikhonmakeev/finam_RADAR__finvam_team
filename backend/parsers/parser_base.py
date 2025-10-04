@@ -1,7 +1,7 @@
 from abc import ABC
 from datetime import datetime
 
-from backend.models.news_item import NewsItem
+from models.news_item import NewsItem
 
 
 class ParserBase(ABC):

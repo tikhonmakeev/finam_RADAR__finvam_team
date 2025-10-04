@@ -17,7 +17,7 @@ class JobsSpider(Spider):
         super(JobsSpider, self).__init__(*args, **kwargs)
         # extract date part of url
         p = compile('\\d{4}\\/\\d{2}\\/\\d{2}')
-        if p.search(start_date) is None or p.search(end_date) is None:
+        if p.search(str(start_date)) is None or p.search(str(end_date)) is None:
             raise ValueError(
                 'Required params start_date and end_date should be in format yyyy/MM/dd\n' +
                 'your input was start_date={} end_date={}'.format(start_date, end_date))

@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
@@ -40,3 +40,6 @@ class InterfaxParser:
         dispatcher.disconnect(item_scraped, signal=signals.item_scraped)
 
         return scraped_data
+
+if __name__ == "__main__":
+    print(InterfaxParser().parse((datetime.now() - timedelta(days=1)), datetime.now()))

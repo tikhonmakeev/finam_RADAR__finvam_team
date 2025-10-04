@@ -36,7 +36,7 @@ services:
       - ./frontend/dist/frontend/browser:/usr/share/nginx/html:ro
 
   db:
-    image: postgres:latest
+    image: ankane/pgvector:pg17
     env_file:
       - .env
     ports:

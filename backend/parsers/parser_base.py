@@ -5,7 +5,7 @@ from models.news_item import NewsItem
 
 
 class ParserBase(ABC):
-    def parse(self, start_date: datetime, end_date: datetime) -> list[NewsItem]:
+    def parse(self, start_date: datetime, end_date: datetime, **kwargs) -> list[NewsItem]:
         """
         Parse news items from start_date to end_date.
 

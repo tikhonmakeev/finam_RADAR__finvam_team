@@ -1,7 +1,7 @@
 import os
 import logging
 import httpx
-from backend.ai_model.prompts.prompt_comparison import SYSTEM_PROMPT as PROMPT_TEMPLATE
+from backend.ai_model.prompts.prompt_comparison import SYSTEM_PROMPT_COMPARISON as PROMPT_TEMPLATE
 
 # Настройка логирования
 logging.basicConfig(

@@ -109,7 +109,7 @@ class VectorStore:
             with self.conn.cursor() as cur:
                 # Вставляем новость, если её еще нет
                 cur.execute("""
-                    INSERT INTO news (title, content, tags, createdAt, updatedAt, hotness_score, is_confirmed, sources)
+                    INSERT INTO news (title, content, tags, created_at, updated_at, hotness_score, is_confirmed, sources)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
                     RETURNING id;
                     """, (

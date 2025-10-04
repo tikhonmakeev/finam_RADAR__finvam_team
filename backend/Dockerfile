@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     liblensfun-dev \
     libdbus-1-dev \
     libglib2.0-dev \
+    libcairo2-dev \
+    libcairo2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

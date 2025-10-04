@@ -178,7 +178,6 @@ s3transfer==0.14.0
 scipy==1.16.2
 scour==0.38.2
 SecretStorage==3.3.3
-selinux @ file:///home/tikhon/Repos/libselinux/src/libselinux-3.8/src
 setproctitle==1.3.7
 setuptools==80.9.0
 setuptools-scm==9.2.0

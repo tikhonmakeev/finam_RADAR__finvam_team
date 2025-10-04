@@ -15,10 +15,11 @@ router = APIRouter(prefix="/news")
 @router.get("/{id}", response_model=NewsItem | None)
 async def get_news_item_by_id():
     return NewsItem(
-        id="1",
+        id=1,
         title="Test",
+        isConfirmed=True,
         content="Вечером город окутан мягким светом фонарей, отражающихся в лужах после недавнего дождя. Люди спешат по тротуарам, спрятавшись под зонтиками, а запах свежей земли и мокрого асфальта смешивается с ароматом свежесваренного кофе из маленьких уличных кафешек. Кажется, что время замедлилось, и каждый звук — шаг, смех, скрип двери — становится особенным.",
-        sources=Source(url="http://t.me/tikhonmakeev", addedAt=datetime.now()),
+        sources=[Source(url="http://t.me/tikhonmakeev", addedAt=datetime.now())],
         createdAt=datetime.now(),
         hotnessScore=80,
     )
@@ -40,8 +41,9 @@ async def get_news_items_by_filters(news_filter: NewsFilter = Query(None)):
     ]
     news_items = [
         NewsItem(
-            id=str(i),
+            id=i,
             title=f"Test {i}",
+            isConfirmed=True,
             content=base_sentences[i - 1],
             sources=[Source(url="http://t.me/tikhonmakeev", addedAt=datetime.now())],
             createdAt=datetime.now(),

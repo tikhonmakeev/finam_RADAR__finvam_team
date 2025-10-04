@@ -16,7 +16,7 @@ class TgParser:
 
     async def connect(self):
         if not self.client.is_connected():
-            self.client.start(bot_token=os.getenv("TG_BOT_TOKEN"))
+            await self.client.start(bot_token=os.getenv("TG_BOT_TOKEN"))
 
     async def disconnect(self):
         if self.client.is_connected():

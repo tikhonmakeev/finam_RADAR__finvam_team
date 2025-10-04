@@ -1,9 +1,9 @@
 from typing import Dict, Any
 import logging
-from backend.db.vector_store import VectorStore
-from backend.ai_model.summarizer import summarize_text
-from backend.ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as STYLE_PROMPT
-from backend.ai_model.llm_client import LocalLLMClient
+from db.vector_store import VectorStore
+from ai_model.summarizer import summarize_text
+from ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as STYLE_PROMPT
+from ai_model.llm_client import LocalLLMClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

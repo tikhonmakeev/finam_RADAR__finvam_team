@@ -61,7 +61,7 @@ async def parse_period(parsing_source_schema: ParsingSourceSchema):
         news.extend(
             await tg_parser.parse(
                 parsing_source_schema.tg_schema.from_date,
-                parsing_source_schema.tg_schema.to_date
+                parsing_source_schema.tg_schema.channels_usernames
             )
         )
     if parsing_source_schema.interfax_schema:

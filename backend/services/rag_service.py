@@ -75,14 +75,14 @@ def process_and_index(news_id: str, text: str, metadata: Dict[str, Any]) -> str:
 async def compare_news(news1: str, news2: str) -> dict:
     """
     Compare two news articles using LLM-based analysis.
-    
+
     Args:
         news1: First news article text
         news2: Second news article text
-        
+
     Returns:
         dict: Comparison results including similarity score and analysis
-        
+
     Example:
         result = await compare_news("First news text...", "Second news text...")
         print(result["similarity"])

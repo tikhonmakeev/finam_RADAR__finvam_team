@@ -1,7 +1,7 @@
 import os
 import logging
-from pathlib import Path
 import httpx
+from backend.ai_model.prompts.prompt_comparison import SYSTEM_PROMPT as PROMPT_TEMPLATE
 
 # Настройка логирования
 logging.basicConfig(
@@ -9,11 +9,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# Загружаем промпт
-PROMPT_PATH = Path(__file__).parent / "prompts" / "prompt_comparison.txt"
-with open(PROMPT_PATH, "r", encoding="utf-8") as f:
-    PROMPT_TEMPLATE = f.read()
 
 # URL локальной LLM (например, Ollama или vLLM)
 LLM_URL = os.getenv("LLM_URL", "http://localhost:8001/v1/chat/completions")

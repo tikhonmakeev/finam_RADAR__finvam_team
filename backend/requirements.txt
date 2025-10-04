@@ -112,7 +112,7 @@ more-itertools==10.8.0
 msgpack==1.0.5
 nanobind==2.9.2
 nest_asyncio==1.6.0
-netsnmp-python==1.1a1
+python3-netsnmp==1.1a1
 nftables==0.1
 nh3==0.3.0
 npyscreen==4.10.5

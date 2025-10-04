@@ -111,11 +111,32 @@ class NewsProcessor:
             system_prompt=market_impact_prompt.SYSTEM_PROMPT_MARKET_IMPACT,
             user_prompt=news_text
         )
-        # Парсим JSON-ответ
+        
+        # Обработка ответа от LLM
         try:
-            if result and isinstance(result, str):
-                return json.loads(result)
-            return result or {"impact_level": "unknown", "affected_sectors": []}
+            if result is None:
+                return {"impact_level": "unknown", "affected_sectors": []}
+                
+            # Обрабатываем булево значение
+            if isinstance(result, str):
+                result = result.strip().lower()
+                if result == 'true':
+                    return {"impact_level": "high", "affected_sectors": ["all"], "is_positive": True}
+                elif result == 'false':
+                    return {"impact_level": "none", "affected_sectors": [], "is_positive": False}
+                
+                # Пытаемся распарсить как JSON, если это не просто True/False
+                try:
+                    return json.loads(result)
+                except json.JSONDecodeError:
+                    pass
+            
+            # Если ответ не распознан, возвращаем значение по умолчанию
+            return {"impact_level": "unknown", "affected_sectors": []}
+            
+        except Exception as e:
+            logger.error(f"Ошибка при обработке рыночного влияния: {e}")
+            return {"impact_level": "error", "affected_sectors": []}
         except json.JSONDecodeError as e:
             logger.error(f"Ошибка при парсинге JSON: {e}")
             return {"impact_level": "error", "affected_sectors": [], "error": str(e)}

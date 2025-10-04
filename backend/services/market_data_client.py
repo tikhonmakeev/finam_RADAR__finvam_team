@@ -35,7 +35,7 @@ class MarketDataClient:
             limit: Number of bars to return
             
         Returns:
-            DataFrame with columns: [open, high, low, close, volume]
+            DataFrame with columns: [begin, end, open, high, low, close, volume]
         """
         try:
             url = f"{self.base_url}/engines/stock/markets/index/boards/SNDX/securities/{ticker}/candles.json"
@@ -49,23 +49,47 @@ class MarketDataClient:
             async with self.session.get(url, params=params) as response:
                 if response.status == 200:
                     data = await response.json()
+                    
+                    # Check if we have the expected data structure
+                    if 'candles' not in data or 'data' not in data['candles']:
+                        logger.error(f"Unexpected response format for {ticker}")
+                        return None
+                        
                     candles = data['candles']['data']
                     
                     if not candles:
+                        logger.warning(f"No data returned for {ticker}")
                         return None
                     
-                    df = pd.DataFrame(candles, columns=[
+                    # Get column names from the response
+                    columns = data['candles'].get('columns', [
                         'open', 'close', 'high', 'low', 'value', 'volume',
-                        'begin', 'end', 'ticker'
+                        'begin', 'end'
                     ])
+                    
+                    # Create DataFrame with available columns
+                    df = pd.DataFrame(candles, columns=columns)
+                    
+                    # Ensure we have the required columns
+                    required_columns = ['begin', 'end', 'open', 'high', 'low', 'close', 'volume']
+                    for col in required_columns:
+                        if col not in df.columns:
+                            logger.error(f"Missing required column in response: {col}")
+                            return None
                     
                     # Convert timestamps
                     df['begin'] = pd.to_datetime(df['begin'])
                     df['end'] = pd.to_datetime(df['end'])
                     
-                    return df[['begin', 'end', 'open', 'high', 'low', 'close', 'volume']]
+                    # Ensure numeric columns are of correct type
+                    numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+                    for col in numeric_cols:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                    
+                    return df[required_columns]
                 else:
-                    logger.error(f"HTTP error {response.status} for {ticker}")
+                    error_text = await response.text()
+                    logger.error(f"HTTP error {response.status} for {ticker}: {error_text}")
                     return None
                     
         except Exception as e:

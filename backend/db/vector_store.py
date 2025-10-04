@@ -110,7 +110,7 @@ class VectorStore:
                 # Вставляем новость, если её еще нет
                 cur.execute("""
                     INSERT INTO news (title, content, tags, createdAt, updatedAt, hotness_score, is_confirmed, sources)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
                     RETURNING id;
                     """, (
                         metadata.title,
@@ -163,7 +163,7 @@ class VectorStore:
 
         except Exception as e:
             self.conn.rollback()
-            logger.error(f"Ошибка при индексации новости {news_id}: {str(e)}")
+            logger.error(f"Ошибка при индексации новости: {str(e)}")
             raise
             
     def search_similar(self, query: str, top_k: int = 5, threshold: float = 0.5) -> List[Dict[str, Any]]:

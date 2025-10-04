@@ -16,7 +16,10 @@ class TgParser(ParserBase):
 
     async def connect(self):
         if not self.client.is_connected():
-            await self.client.start()
+            await self.client.connect()
+            if not await self.client.is_user_authorized():
+                await self.client.send_code_request(os.getenv("TG_API_PHONE"))
+                await self.client.sign_in(os.getenv("TG_API_PHONE"), os.getenv("TG_API_CODE"))
 
     async def disconnect(self):
         if self.client.is_connected():

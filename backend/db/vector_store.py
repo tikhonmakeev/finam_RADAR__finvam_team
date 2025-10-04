@@ -119,7 +119,7 @@ class VectorStore:
                         datetime.now(),
                         metadata.hotnessScore,
                         metadata.isConfirmed,
-                        metadata.sources
+                        metadata.sources.model_dump()
                     ))
 
                 row = cur.fetchone()

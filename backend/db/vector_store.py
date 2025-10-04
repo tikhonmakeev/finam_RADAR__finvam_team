@@ -55,7 +55,7 @@ class VectorStore:
                 content TEXT NOT NULL,
                 tags TEXT[] DEFAULT '{}',
                 created_at TIMESTAMP DEFAULT NOW(),
-                timeline TIMESTAMP[] DEFAULT '{}',
+                updated_at TIMESTAMP DEFAULT NOW(),
                 hotness_score FLOAT DEFAULT 0,
                 is_confirmed BOOLEAN DEFAULT FALSE,
                 sources TEXT[] DEFAULT '{}'
@@ -98,7 +98,7 @@ class VectorStore:
             # Разбиваем текст на фрагменты
             chunks = chunk_text(text)
             if not chunks:
-                logger.warning(f"Не удалось создать фрагменты для новости с ID: {news_id}")
+                logger.warning(f"Не удалось создать фрагменты для новости ({metadata})")
                 return
 
             # Генерируем эмбеддинги для каждого фрагмента
@@ -107,14 +107,15 @@ class VectorStore:
             with self.conn.cursor() as cur:
                 # Вставляем новость, если её еще нет
                 cur.execute("""
-                    INSERT INTO news (title, content, tags, timeline, hotness_score, is_confirmed, sources)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
+                    INSERT INTO news (title, content, tags, createdAt, updatedAt, hotness_score, is_confirmed, sources)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
                     RETURNING id;
                     """, (
                         metadata.title,
                         text,
                         metadata.tags,
-                        metadata.timeline,
+                        datetime.now(),
+                        datetime.now(),
                         metadata.hotnessScore,
                         metadata.isConfirmed,
                         metadata.sources

@@ -1,1 +1,12 @@
-<p>NewsPage works!</p>
+<tui-scrollbar class="news-feed__scroll-container">
+    <div class="news-feed">
+        <div class="news-feed__news">
+            @for (news of newsList; track news.id) {
+                <app-news-card [news]="news"></app-news-card>
+            }
+            @empty {
+                <p>No news available.</p>
+            }
+        </div>
+    </div>
+</tui-scrollbar>

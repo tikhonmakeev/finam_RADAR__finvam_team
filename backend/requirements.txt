@@ -134,7 +134,6 @@ prompt_toolkit==3.0.52
 psutil==7.0.0
 ptyprocess==0.7.0
 pure_eval==0.2.3
-pwquality==1.4.5
 pyalpm==0.10.12
 pybind11==3.0.1
 pycairo==1.28.0

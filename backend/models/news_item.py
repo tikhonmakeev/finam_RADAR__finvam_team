@@ -15,6 +15,6 @@ class NewsItem(BaseModel):
     tags: list[str]= Field(default_factory=list, description="Массив тегов, связанных с постом")
     createdAt: datetime = Field(description="Дата и время создания поста в формате ISO", default=datetime.now())
     updatedAt: datetime = Field(description="Дата и время последнего обновления поста в формате ISO", default=datetime.now())
-    hotnessScore: float = Field(..., description="Оценка популярности поста", default=0)
+    hotnessScore: float = Field(description="Оценка популярности поста", default=0)
     isConfirmed: bool | None = Field(description="Флаг, подтверждён ли пост официально", default=False)
     sources: list[Source] = Field(default_factory=list, description="Источники информации, использованные для поста")

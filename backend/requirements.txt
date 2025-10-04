@@ -31,7 +31,6 @@ loguru>=0.7.0  # Улучшенное логирование
 # python -m spacy download en_core_web_lg
 
 appdirs==1.4.4
-application-utility==1.4.0
 arandr==0.1.11
 argcomplete==3.6.2
 asgiref==3.9.1

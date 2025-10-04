@@ -11,15 +11,11 @@ class Settings(BaseSettings):
     Переменные окружения загружаются из .env файла.
     """
     
-    # Настройки базы данных
-    DATABASE_URL: str = Field(..., env="DATABASE_URL")
-    
     # Настройки API
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Finam Radar API"
     
     # Настройки безопасности
-    SECRET_KEY: str = Field(..., env="SECRET_KEY")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 дней
     
     # Настройки логирования

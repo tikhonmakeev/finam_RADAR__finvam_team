@@ -50,8 +50,6 @@ class TgParser:
         return res
 
     async def _get_telegram_link(self, message: Message, username: str):
-        if not message.post:
-            return None  # Только для постов в канале
         if not self.client:
             return None  # Нужен клиент для получения сущности канала
 

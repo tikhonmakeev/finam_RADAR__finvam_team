@@ -1,7 +1,9 @@
+import json
 import os
 from typing import Dict, List, Any, Optional
 import logging
 import psycopg2
+from datetime import datetime
 from psycopg2.extras import execute_values
 from ai_model.embedder import Embedder
 from ai_model.rag_utils import chunk_text
@@ -55,7 +57,7 @@ class VectorStore:
                 content TEXT NOT NULL,
                 tags TEXT[] DEFAULT '{}',
                 created_at TIMESTAMP DEFAULT NOW(),
-                timeline TIMESTAMP[] DEFAULT '{}',
+                updated_at TIMESTAMP DEFAULT NOW(),
                 hotness_score FLOAT DEFAULT 0,
                 is_confirmed BOOLEAN DEFAULT FALSE,
                 sources TEXT[] DEFAULT '{}'
@@ -98,26 +100,27 @@ class VectorStore:
             # Разбиваем текст на фрагменты
             chunks = chunk_text(text)
             if not chunks:
-                logger.warning(f"Не удалось создать фрагменты для новости с ID: {news_id}")
+                logger.warning(f"Не удалось создать фрагменты для новости ({metadata})")
                 return
-                
+
             # Генерируем эмбеддинги для каждого фрагмента
             embeddings = self.embedder.embed(chunks)
             
             with self.conn.cursor() as cur:
                 # Вставляем новость, если её еще нет
                 cur.execute("""
-                    INSERT INTO news (title, content, tags, timeline, hotness_score, is_confirmed, sources)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
+                    INSERT INTO news (title, content, tags, created_at, updated_at, hotness_score, is_confirmed, sources)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
                     RETURNING id;
                     """, (
                         metadata.title,
                         text,
                         metadata.tags,
-                        metadata.timeline,
+                        datetime.now(),
+                        datetime.now(),
                         metadata.hotnessScore,
                         metadata.isConfirmed,
-                        metadata.sources
+                        f"[{', '.join([source.model_dump_json() for source in metadata.sources])}]"
                     ))
 
                 row = cur.fetchone()
@@ -160,7 +163,7 @@ class VectorStore:
 
         except Exception as e:
             self.conn.rollback()
-            logger.error(f"Ошибка при индексации новости {news_id}: {str(e)}")
+            logger.error(f"Ошибка при индексации новости: {str(e)}")
             raise
             
     def search_similar(self, query: str, top_k: int = 5, threshold: float = 0.5) -> List[Dict[str, Any]]:

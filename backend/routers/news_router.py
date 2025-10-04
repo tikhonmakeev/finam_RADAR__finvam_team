@@ -66,9 +66,12 @@ async def parse_period(parsing_source_schema: ParsingSourceSchema):
         )
     if parsing_source_schema.interfax_schema:
         news.extend(
-            await interfax_parser.parse(
+            interfax_parser.parse(
                 parsing_source_schema.interfax_schema.from_date,
                 parsing_source_schema.interfax_schema.to_date
             )
         )
+
+    for news_item in news:
+        vector_store.index_news(text=news_item.content, metadata=news_item)
     return news

@@ -24,10 +24,10 @@ class TgParser:
         if self.client.is_connected():
             await self.client.disconnect()
 
-    async def parse(self, start_date: datetime, channels_usernames: list[str]) -> dict[str, NewsItem] | None:
+    async def parse(self, start_date: datetime, channels_usernames: list[str]) -> list[NewsItem] | None:
         if not channels_usernames:
             return None
-        res={}
+        res=[]
         for channel in channels_usernames:
             items: list[NewsItem] = []
             async for message in self.client.iter_messages(
@@ -45,7 +45,7 @@ class TgParser:
                 )
                 items.append(news_item)
 
-            res[channel] = items
+            res.extend(items)
 
         return res
 

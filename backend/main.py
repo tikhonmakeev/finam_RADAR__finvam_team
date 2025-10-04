@@ -3,6 +3,8 @@ import logging
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
+from routers.news_router import router as news_router
+
 logger = logging.getLogger(__name__)
 logger.info("Starting application...")
 
@@ -12,7 +14,9 @@ app = FastAPI(
     root_path="/api"
 )
 
-routers = []
+routers = [
+    news_router
+]
 
 for router in routers:
     app.include_router(router)

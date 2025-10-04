@@ -3,15 +3,15 @@ import logging
 from typing import Optional
 import requests
 from requests.exceptions import RequestException
-
-
-# Конфигурация для локального LLM (Ollama/Пользовательский HTTP)
-LLM_API_URL = "http://127.0.0.1:11434"  # URL по умолчанию для Ollama
-MODEL_NAME = "qwen2.5:7b"  # Название модели по умолчанию
+from config import settings
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
+
+# Конфигурация для локального LLM (Ollama/Пользовательский HTTP)
+LLM_API_URL = getattr(settings, 'LLM_API_URL', 'http://127.0.0.1:11434')
+MODEL_NAME = getattr(settings, 'LLM_MODEL_NAME', 'qwen2.5:7b')
 
 
 class LocalLLMClient:
@@ -20,7 +20,9 @@ class LocalLLMClient:
     Поддерживает как API, совместимые с Ollama, так и с OpenAI.
     """
     
-    def __init__(self, base_url: str = LLM_API_URL, model: str = MODEL_NAME):
+    def __init__(self, base_url: str = None, model: str = None):
+        base_url = base_url or LLM_API_URL
+        model = model or MODEL_NAME
         """Инициализация клиента LLM.
         
         Args:
@@ -56,8 +58,8 @@ class LocalLLMClient:
             ValueError: При невозможности разобрать ответ сервера
             
         Пример использования:
-            >>> client = LocalLLMClient()
-            >>> response = client.chat("Привет, как дела?", temperature=0.5)
+            client = LocalLLMClient()
+            response = client.chat("Привет, как дела?", temperature=0.5)
         """
         # Подготавливаем сообщения для отправки
         messages = []

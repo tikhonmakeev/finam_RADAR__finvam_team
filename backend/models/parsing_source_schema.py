@@ -5,8 +5,7 @@ from pydantic import BaseModel
 
 class TgSchema(BaseModel):
     from_date: datetime
-    to_date: datetime
-    channels_ids: list[str]
+    channels_usernames: list[str]
 
 
 class InterfaxSchema(BaseModel):
@@ -15,5 +14,5 @@ class InterfaxSchema(BaseModel):
 
 
 class ParsingSourceSchema(BaseModel):
-    tg_schema: TgSchema | None
-    interfax_schema: InterfaxSchema | None
+    tg_schema: TgSchema | None = None
+    interfax_schema: InterfaxSchema | None = None

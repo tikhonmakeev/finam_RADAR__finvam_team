@@ -1,0 +1,32 @@
+# Основные зависимости
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Машинное обучение и обработка естественного языка
+torch>=2.0.0
+transformers>=4.30.0
+sentence-transformers>=2.2.2
+faiss-cpu>=1.7.4  # Используйте faiss-gpu для GPU ускорения
+scikit-learn>=1.2.0
+spacy>=3.5.0
+
+# Веб-фреймворк и сервер
+fastapi>=0.95.0
+uvicorn>=0.21.0
+httpx>=0.24.0
+
+# Базы данных
+clickhouse-driver>=0.2.6
+pymongo>=4.3.3
+redis>=4.5.5
+neo4j>=5.8.0
+elasticsearch>=8.7.0
+
+# Дополнительные утилиты
+python-dotenv>=1.0.0  # Для работы с .env файлами
+tqdm>=4.65.0  # Индикаторы прогресса
+loguru>=0.7.0  # Улучшенное логирование
+
+# Зависимости spaCy моделей (раскомментируйте нужные)
+# python -m spacy download ru_core_news_lg
+# python -m spacy download en_core_web_lg

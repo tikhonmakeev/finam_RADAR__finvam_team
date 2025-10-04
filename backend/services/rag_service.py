@@ -1,9 +1,10 @@
 from typing import Dict, Any
 import logging
-from db.vector_store import VectorStore
-from ai_model.summarizer import summarize_text
-from ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as STYLE_PROMPT
-from ai_model.llm_client import LocalLLMClient
+from backend.db.vector_store import VectorStore
+from backend.ai_model.summarizer import summarize_text
+from backend.ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as STYLE_PROMPT
+from backend.ai_model.llm_client import LocalLLMClient
+from backend.ai_model.compare import compare_news as llm_compare_news
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -69,6 +70,31 @@ def process_and_index(news_id: str, text: str, metadata: Dict[str, Any]) -> str:
     except Exception as e:
         logger.error(f"Error processing news_id {news_id}: {str(e)}")
         raise RuntimeError(f"Failed to process and index document: {str(e)}")
+
+
+async def compare_news(news1: str, news2: str) -> dict:
+    """
+    Compare two news articles using LLM-based analysis.
+    
+    Args:
+        news1: First news article text
+        news2: Second news article text
+        
+    Returns:
+        dict: Comparison results including similarity score and analysis
+        
+    Example:
+        result = await compare_news("First news text...", "Second news text...")
+        print(result["similarity"])
+    """
+    try:
+        return await llm_compare_news(news1, news2)
+    except Exception as e:
+        logger.error(f"Error comparing news articles: {str(e)}")
+        return {
+            "error": "Failed to compare news articles",
+            "details": str(e)
+        }
 
 
 def retrieve_and_normalize(text: str, top_k: int = 5) -> str:

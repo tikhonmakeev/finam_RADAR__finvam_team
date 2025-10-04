@@ -1,5 +1,7 @@
 from db.vector_store import VectorStore
-from parsers.interfax_parser.run import InterfaxParser
+from parsers.interfax_parser.interfax_parser import InterfaxParser
+from parsers.telegram_parser.telegram_parser import TgParser
 
 vector_store = VectorStore()
-parser = InterfaxParser()
+interfax_parser = InterfaxParser()
+tg_parser = TgParser()

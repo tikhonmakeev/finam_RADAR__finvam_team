@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Any, Optional
 import logging
 import psycopg2
@@ -33,11 +34,11 @@ class VectorStore:
     def _get_db_connection(self):
         """Создание подключения к базе данных с использованием переменных окружения."""
         return psycopg2.connect(
-            dbname="your_db_name",
-            user="your_username",
-            password="your_password",
-            host="localhost",
-            port=5432
+            dbname=os.environ.get("POSTGRES_DB"),
+            user=os.environ.get("POSTGRES_USER"),
+            password=os.environ.get("POSTGRES_PASSWORD"),
+            host=os.environ.get("POSTGRES_HOST"),
+            port=os.environ.get("POSTGRES_PORT")
         )
 
     def _init_db(self):
@@ -49,7 +50,7 @@ class VectorStore:
             # Создаем таблицу новостей
             cur.execute("""
             CREATE TABLE IF NOT EXISTS news (
-                id TEXT PRIMARY KEY,
+                id SERIAL PRIMARY KEY,
                 title TEXT NOT NULL,
                 content TEXT NOT NULL,
                 tags TEXT[] DEFAULT '{}',
@@ -82,7 +83,7 @@ class VectorStore:
             
             self.conn.commit()
 
-    def index_news(self, news_id: str, text: str, metadata: NewsItem = None) -> None:
+    def index_news(self, text: str, metadata: NewsItem = None) -> int:
         """Индексирует новостную статью, разбивая её на фрагменты и сохраняя эмбеддинги.
         
         Аргументы:
@@ -106,28 +107,23 @@ class VectorStore:
             with self.conn.cursor() as cur:
                 # Вставляем новость, если её еще нет
                 cur.execute("""
-                INSERT INTO news (id, title, content, tags, timeline, hotness_score, is_confirmed, sources)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO UPDATE 
-                SET title = EXCLUDED.title,
-                    content = EXCLUDED.content,
-                    tags = EXCLUDED.tags,
-                    timeline = EXCLUDED.timeline,
-                    hotness_score = EXCLUDED.hotness_score,
-                    is_confirmed = EXCLUDED.is_confirmed,
-                    sources = EXCLUDED.sources
-                RETURNING id;
-                """, (
-                    news_id,
-                    metadata.title,
-                    text,
-                    metadata.tags,
-                    metadata.timeline,
-                    metadata.hotnessScore,
-                    metadata.isConfirmed,
-                    metadata.sources
-                ))
-                
+                    INSERT INTO news (title, content, tags, timeline, hotness_score, is_confirmed, sources)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING
+                    RETURNING id;
+                    """, (
+                        metadata.title,
+                        text,
+                        metadata.tags,
+                        metadata.timeline,
+                        metadata.hotnessScore,
+                        metadata.isConfirmed,
+                        metadata.sources
+                    ))
+
+                row = cur.fetchone()
+                if row:
+                    news_id = row[0]
+
                 # Подготавливаем данные фрагментов для пакетной вставки
                 chunk_data = []
                 for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
@@ -160,7 +156,8 @@ class VectorStore:
                 
                 self.conn.commit()
                 logger.info(f"Проиндексировано {len(chunks)} фрагментов для новости с ID: {news_id}")
-                
+                return news_id
+
         except Exception as e:
             self.conn.rollback()
             logger.error(f"Ошибка при индексации новости {news_id}: {str(e)}")

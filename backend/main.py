@@ -4,6 +4,7 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers.news_router import router as news_router
+from dependencies import tg_parser
 
 logger = logging.getLogger(__name__)
 logger.info("Starting application...")
@@ -14,6 +15,14 @@ app = FastAPI(
     version="1.0.1",
     root_path="/api"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    await tg_parser.connect()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await tg_parser.disconnect()
 
 routers = [
     news_router

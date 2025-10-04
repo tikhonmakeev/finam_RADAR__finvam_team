@@ -1,34 +1,56 @@
+import os
+
 from telethon import TelegramClient
+from telethon.tl.custom.message import Message
 from datetime import datetime
 
-from models.news_item import NewsItem
-from parsers.parser_base import ParserBase
+from models.news_item import NewsItem, Source
 
 
-class TgParser(ParserBase):
+SESSION_FILE = "user_session"
+
+class TgParser:
     def __init__(self):
-        self.api_id = 123456
-        self.api_hash = "your_api_hash"
+        self.api_id = os.environ.get("tg_api_id")
+        self.api_hash = os.environ.get("tg_api_hash")
 
-        self.client = TelegramClient("session", self.api_id, self.api_hash)
-        self.client.start()
+        self.client = TelegramClient(SESSION_FILE, self.api_id, self.api_hash)
 
-    async def parse(self, start_date: datetime, end_date: datetime, **kwargs) -> dict[str, NewsItem] | None:
-        if "channels_usernames" in kwargs:
-            channels_usernames: list[str] = kwargs["channels_usernames"]
-        else:
-            return
+    async def connect(self):
+        if not self.client.is_connected():
+            await self.client.start()
 
+    async def disconnect(self):
+        if self.client.is_connected():
+            await self.client.disconnect()
 
-        # задаём дату, начиная с которой хотим сообщения
-        start_date = datetime(2024, 9, 1)  # например, с 1 сентября 2024
-        res=dict()
-        # выгружаем все сообщения от start_date до сегодня
+    async def parse(self, start_date: datetime, channels_usernames: list[str]) -> dict[str, NewsItem] | None:
+        if not channels_usernames:
+            return None
+        res={}
         for channel in channels_usernames:
-            l = []
-            async for message in self.client.iter_messages(channel, offset_date=start_date, reverse=True):
-                l.append(message.id, message.date, message.text)
-                NewsItem(id=None,title=None,content=message.text,tags=None,createdAt=message.date,sources=message.id)
+            items: list[NewsItem] = []
+            async for message in self.client.iter_messages(
+                    channel, offset_date=start_date, reverse=True
+            ):
+                news_item = NewsItem(
+                    title="title", # TODO заменить на нормально нахождение title
+                    content=message.text,
+                    createdAt=message.date,
+                    updatedAt=message.date,
+                    sources=[Source(
+                        url=await self._get_telegram_link(message=message, username=channel),
+                        addedAt=datetime.now()
+                    )],
+                )
+                items.append(news_item)
 
-            res[channel] = l
+            res[channel] = items
+
         return res
+
+    async def _get_telegram_link(self, message: Message, username: str):
+        if not self.client:
+            return None  # Нужен клиент для получения сущности канала
+
+        return f"https://t.me/{username}/{message.id}"

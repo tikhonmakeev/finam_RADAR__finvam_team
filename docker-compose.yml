@@ -33,10 +33,10 @@ services:
     networks:
       - app-network
     volumes:
-      - ./frontend/dist/frontend/browser:/usr/share/nginx/html:ro
+      - ./dist/frontend/browser:/usr/share/nginx/html:ro
 
   db:
-    image: postgres:latest
+    image: pgvector/pgvector:pg17-bookworm
     env_file:
       - .env
     ports:

@@ -1,9 +1,11 @@
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 import logging
 import psycopg2
 from psycopg2.extras import execute_values
-from backend.ai_model.embedder import Embedder
-from backend.ai_model.rag_utils import chunk_text
+from ai_model.embedder import Embedder
+from ai_model.rag_utils import chunk_text
+from models.news_filter import NewsFilter
+from models.news_item import NewsItem
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -47,12 +49,15 @@ class VectorStore:
             # Создаем таблицу новостей
             cur.execute("""
             CREATE TABLE IF NOT EXISTS news (
-                id SERIAL PRIMARY KEY,
+                id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
                 content TEXT NOT NULL,
-                source VARCHAR(255),
+                tags TEXT[] DEFAULT '{}',
                 created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
+                timeline TIMESTAMP[] DEFAULT '{}',
+                hotness_score FLOAT DEFAULT 0,
+                is_confirmed BOOLEAN DEFAULT FALSE,
+                sources TEXT[] DEFAULT '{}'
             );
             """)
             
@@ -77,7 +82,7 @@ class VectorStore:
             
             self.conn.commit()
 
-    def index_news(self, news_id: str, text: str, metadata: Dict[str, Any] = None) -> None:
+    def index_news(self, news_id: str, text: str, metadata: NewsItem = None) -> None:
         """Индексирует новостную статью, разбивая её на фрагменты и сохраняя эмбеддинги.
         
         Аргументы:
@@ -101,19 +106,26 @@ class VectorStore:
             with self.conn.cursor() as cur:
                 # Вставляем новость, если её еще нет
                 cur.execute("""
-                INSERT INTO news (id, title, content, source)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO news (id, title, content, tags, timeline, hotness_score, is_confirmed, sources)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE 
-                SET title = EXCLUDED.title, 
+                SET title = EXCLUDED.title,
                     content = EXCLUDED.content,
-                    source = EXCLUDED.source,
-                    updated_at = NOW()
+                    tags = EXCLUDED.tags,
+                    timeline = EXCLUDED.timeline,
+                    hotness_score = EXCLUDED.hotness_score,
+                    is_confirmed = EXCLUDED.is_confirmed,
+                    sources = EXCLUDED.sources
                 RETURNING id;
                 """, (
                     news_id,
-                    metadata.get('title', ''),
+                    metadata.title,
                     text,
-                    metadata.get('source', 'неизвестно')
+                    metadata.tags,
+                    metadata.timeline,
+                    metadata.hotnessScore,
+                    metadata.isConfirmed,
+                    metadata.sources
                 ))
                 
                 # Подготавливаем данные фрагментов для пакетной вставки
@@ -174,7 +186,6 @@ class VectorStore:
                 cur.execute("""
                 SELECT 
                     nc.id,
-                    nc.news_id,
                     n.title as news_title,
                     n.source as news_source,
                     nc.chunk_text,
@@ -182,7 +193,6 @@ class VectorStore:
                     nc.metadata,
                     1 - (nc.embedding <=> %s::vector) as similarity
                 FROM news_chunks nc
-                JOIN news n ON n.id = nc.news_id
                 WHERE 1 - (nc.embedding <=> %s::vector) >= %s
                 ORDER BY similarity DESC
                 LIMIT %s;
@@ -207,7 +217,7 @@ class VectorStore:
             logger.error(f"Ошибка при поиске похожих документов: {str(e)}")
             return []
     
-    def get_news_by_id(self, news_id: str) -> Optional[Dict[str, Any]]:
+    def get_news_item_by_id(self, news_id: str) -> NewsItem | None:
         """Получает новостную статью и её фрагменты по ID.
         
         Аргументы:
@@ -224,38 +234,12 @@ class VectorStore:
                 FROM news
                 WHERE id = %s;
                 """, (news_id,))
-                
+
                 news_row = cur.fetchone()
                 if not news_row:
                     return None
-                
-                # Получаем все фрагменты для этой новости
-                cur.execute("""
-                SELECT id, chunk_text, chunk_index, metadata, created_at
-                FROM news_chunks
-                WHERE news_id = %s
-                ORDER BY chunk_index;
-                """, (news_id,))
-                
-                chunks = []
-                for chunk_row in cur.fetchall():
-                    chunks.append({
-                        'id': chunk_row[0],
-                        'text': chunk_row[1],
-                        'index': chunk_row[2],
-                        'metadata': chunk_row[3] or {},
-                        'created_at': chunk_row[4]
-                    })
-                
-                return {
-                    'id': news_row[0],
-                    'title': news_row[1],
-                    'content': news_row[2],
-                    'source': news_row[3],
-                    'created_at': news_row[4],
-                    'updated_at': news_row[5],
-                    'chunks': chunks
-                }
+
+                return NewsItem.model_validate(news_row)
                 
         except Exception as e:
             logger.error(f"Ошибка при получении новости {news_id}: {str(e)}")
@@ -283,9 +267,34 @@ class VectorStore:
             self.conn.rollback()
             logger.error(f"Ошибка при удалении новости {news_id}: {str(e)}")
             return False
-    
-    def __del__(self):
-        """Закрывает соединение с базой данных при уничтожении объекта."""
-        if hasattr(self, 'conn') and self.conn:
-            self.conn.close()
-            logger.info("Соединение с базой данных закрыто")
+
+    def get_news_by_filters(self, news_filter: NewsFilter) -> list[NewsItem]:
+        """Получает новости и их фрагменты по заданным фильтрам."""
+        try:
+            with self.conn.cursor() as cur:
+                conditions = []
+                params = []
+
+                if news_filter.tags:
+                    conditions.append("tags && %s::text[]")
+                    params.append(news_filter.tags)
+
+                if news_filter.mustBeConfirmed:
+                    conditions.append("is_confirmed = %s")
+                    params.append(news_filter.is_confirmed)
+
+                where_clause = " AND ".join(conditions) if conditions else "TRUE"
+
+                cur.execute(f"""
+                    SELECT id, title, content, source, created_at, updated_at
+                    FROM news
+                    WHERE {where_clause}
+                    ORDER BY created_at DESC;
+                """, tuple(params))
+
+                news_rows = cur.fetchall()
+                return [NewsItem.model_validate(news_row) for news_row in news_rows]
+
+        except Exception as e:
+            logger.error(f"Ошибка при получении новостей по фильтрам: {str(e)}")
+            return []

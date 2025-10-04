@@ -2,7 +2,7 @@ from typing import List, Tuple, Any, Dict, Optional
 import re
 import logging
 import numpy as np
-from backend.ai_model.embedder import Embedder
+from ai_model.embedder import Embedder
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)

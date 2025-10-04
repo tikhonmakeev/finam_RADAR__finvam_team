@@ -1,0 +1,12 @@
+<div class="news-card" [routerLink]="`/news/${news().id}`">
+    <div class="news-card__hotness" [ngClass]="news().hotnessScore >= 75 ? '--red' : (news().hotnessScore >= 50 ? '--orange' : '--green')">
+        <span class="news-card__hotness-score">{{ news().hotnessScore }}</span>
+    </div>
+    <div class="news-card__right-part">
+        <div class="news-card__right-part__top-part">
+            <h2 class="news-card__title">{{ news().title }}</h2>
+            <span class="news-card__confirmed" [ngClass]="news().isConfirmed ? '--green' : '--orange'">{{ news().isConfirmed ? "достоверно" : "не проверено" }}</span> 
+        </div>
+        <p class="news-card__content">{{ news().content | truncate:200 }}</p>
+    </div>
+</div>

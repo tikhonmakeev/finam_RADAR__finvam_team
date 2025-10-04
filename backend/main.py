@@ -4,6 +4,7 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers.news_router import router as news_router
+from dependencies import tg_parser
 
 logger = logging.getLogger(__name__)
 logger.info("Starting application...")

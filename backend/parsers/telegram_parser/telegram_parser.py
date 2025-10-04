@@ -30,7 +30,6 @@ class TgParser(ParserBase):
 
 
         # задаём дату, начиная с которой хотим сообщения
-        start_date = datetime(2024, 9, 1)  # например, с 1 сентября 2024
         res={}
         # выгружаем все сообщения от start_date до сегодня
         for channel in channels_usernames:

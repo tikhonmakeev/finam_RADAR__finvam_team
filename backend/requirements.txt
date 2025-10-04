@@ -95,8 +95,6 @@ jupyter_client==8.6.3
 jupyter_core==5.8.1
 keyring==25.6.0
 keyutils==0.6
-kiwisolver==1.4.7
-lensfun==0.3.4
 libtorrent==2.0.11
 lit==20.1.0.dev0
 lockfile==0.12.2

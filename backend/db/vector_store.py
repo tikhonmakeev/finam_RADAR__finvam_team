@@ -6,6 +6,7 @@ from ai_model.embedder import Embedder
 from ai_model.rag_utils import chunk_text
 from models.news_filter import NewsFilter
 from models.news_item import NewsItem
+from config import settings
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -31,14 +32,8 @@ class VectorStore:
         logger.info(f"Инициализировано хранилище векторов с размерностью: {dim} и моделью: {model_name}")
 
     def _get_db_connection(self):
-        """Создание подключения к базе данных с использованием переменных окружения."""
-        return psycopg2.connect(
-            dbname="your_db_name",
-            user="your_username",
-            password="your_password",
-            host="localhost",
-            port=5432
-        )
+        """Создание подключения к базе данных с использованием настроек из конфига."""
+        return psycopg2.connect(settings.DATABASE_URL)
 
     def _init_db(self):
         """Инициализация таблиц в базе данных и расширения pgvector."""

@@ -1,9 +1,14 @@
-import json
 import os
+import logging
 from pathlib import Path
-from typing import Dict
-
 import httpx
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Загружаем промпт
 PROMPT_PATH = Path(__file__).parent / "prompts" / "prompt_comparison.txt"
@@ -13,47 +18,62 @@ with open(PROMPT_PATH, "r", encoding="utf-8") as f:
 # URL локальной LLM (например, Ollama или vLLM)
 LLM_URL = os.getenv("LLM_URL", "http://localhost:8001/v1/chat/completions")
 
-async def compare_news(news1: str, news2: str) -> Dict:
+async def compare_news(news1: str, news2: str) -> bool:
     """
     Сравнение двух новостей через LLM и prompt_comparison.
-    Возвращает словарь с выводом модели.
+    
+    Args:
+        news1: Первый текст новости
+        news2: Второй текст новости
+        
+    Returns:
+        bool: True если новости об одном и том же событии, иначе False
+        
+    Raises:
+        ValueError: Если не удалось разобрать ответ от модели
+        httpx.RequestError: При ошибке HTTP-запроса
     """
     prompt = PROMPT_TEMPLATE.format(
         news1=news1.strip(),
         news2=news2.strip()
     )
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(
-            LLM_URL,
-            headers={"Content-Type": "application/json"},
-            json={
-                "model": "qwen2.5:7b",
-                "messages": [
-                    {"role": "system", "content": "Ты эксперт по анализу новостей."},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.2,
-                "max_tokens": 500
-            }
-        )
-
-    data = response.json()
-    output = data["choices"][0]["message"]["content"]
-
     try:
-        # Можно сразу пытаться парсить JSON, если промпт заставляет LLM выдавать JSON
-        return json.loads(output)
-    except Exception:
-        # Если не JSON — вернем текст
-        return {"result": output}
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                LLM_URL,
+                headers={"Content-Type": "application/json"},
+                json={
+                    "model": "qwen2.5:7b",
+                    "messages": [
+                        {"role": "system", "content": "Ты эксперт по анализу новостей."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 10  # Уменьшаем, так как ответ теперь короче
+                }
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            output = data["choices"][0]["message"]["content"].strip().lower()
+            
+            if output == 'да':
+                return True
+            elif output == 'нет':
+                return False
+            else:
+                logger.warning(f"Неожиданный ответ от модели: '{output}'. Ожидалось 'Да' или 'Нет'.")
+                # В случае неожиданного ответа считаем, что новости разные
+                return False
+                
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Ошибка HTTP при запросе к LLM: {e}")
+        raise
+    except (KeyError, IndexError) as e:
+        logger.error(f"Не удалось разобрать ответ от модели: {e}")
+        raise ValueError("Неверный формат ответа от модели") from e
+    except Exception as e:
+        logger.error(f"Неизвестная ошибка: {e}")
+        raise
 
-
-if __name__ == "__main__":
-    import asyncio
-
-    news_a = "Компания X подтвердила сделку на 5 миллиардов рублей."
-    news_b = "Компания X объявила о заключении соглашения стоимостью 5 млрд."
-    result = asyncio.run(compare_news(news_a, news_b))
-    print("📊 Сравнение новостей:")
-    print(result)

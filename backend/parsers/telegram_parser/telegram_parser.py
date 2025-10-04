@@ -33,9 +33,8 @@ class TgParser:
             async for message in self.client.iter_messages(
                     channel, offset_date=start_date, reverse=True
             ):
-                title = message.text.split("\n")[0].split(".")[0]
                 news_item = NewsItem(
-                    title=title,
+                    title="title", # TODO заменить на нормально нахождение title
                     content=message.text,
                     createdAt=message.date,
                     updatedAt=message.date,

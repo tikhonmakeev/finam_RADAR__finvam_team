@@ -53,9 +53,9 @@ async def compare_news(news1: str, news2: str) -> bool:
             data = response.json()
             output = data["choices"][0]["message"]["content"].strip().lower()
             
-            if output == 'да':
+            if output == 'True':
                 return True
-            elif output == 'нет':
+            elif output == 'False':
                 return False
             else:
                 logger.warning(f"Неожиданный ответ от модели: '{output}'. Ожидалось 'Да' или 'Нет'.")

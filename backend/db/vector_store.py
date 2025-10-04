@@ -2,6 +2,7 @@ import os
 from typing import Dict, List, Any, Optional
 import logging
 import psycopg2
+from datetime import datetime
 from psycopg2.extras import execute_values
 from ai_model.embedder import Embedder
 from ai_model.rag_utils import chunk_text

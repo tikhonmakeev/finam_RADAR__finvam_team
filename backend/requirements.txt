@@ -148,7 +148,6 @@ PyQt5==5.15.11
 PyQt5_sip==12.17.0
 pyserial==3.5
 PySide6==6.9.2
-pysmbc==1.0.25.1
 pytest==8.4.2
 pytest-cov==6.1.1
 pytest-mock==3.14.0

@@ -106,7 +106,125 @@ class MarketDataClient:
             'D': 24
         }
         return tf_mapping.get(timeframe, 60)
+
+    async def get_hashtag_stats(self, hashtag: str, news_date: datetime) -> Dict[str, Dict]:
+        """
+        Get search statistics for a hashtag around news date
+        
+        Args:
+            hashtag: The hashtag to search for (without #)
+            news_date: The date of the news article
+            
+        Returns:
+            Dictionary with 'before' and 'after' periods data
+            {
+                'before': {date_str: count, ...},  # 30 days before news
+                'after': {date_str: count, ...}    # News day + next day
+            }
+        """
+        try:
+            # Calculate date ranges
+            end_date = news_date + timedelta(days=1)  # Include next day
+            start_date = news_date - timedelta(days=30)
+            
+            # Format dates for API
+            date_format = '%Y-%m-%d'
+            params = {
+                'hashtag': hashtag,
+                'start_date': start_date.strftime(date_format),
+                'end_date': end_date.strftime(date_format)
+            }
+            
+            # This is a placeholder - you'll need to implement the actual API call
+            # to your search analytics service
+            async with self.session.get(
+                "https://api.yoursearchservice.com/v1/hashtag/stats",
+                params=params
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    # Process the data into before/after periods
+                    result = {'before': {}, 'after': {}}
+                    
+                    for date_str, count in data.get('daily_stats', {}).items():
+                        current_date = datetime.strptime(date_str, date_format).date()
+                        
+                        if current_date < news_date.date():
+                            result['before'][date_str] = count
+                        elif current_date <= end_date.date():
+                            result['after'][date_str] = count
+                    
+                    return result
+                else:
+                    logger.error(f"Error fetching hashtag stats: {response.status}")
+                    return {'before': {}, 'after': {}}
+                    
+        except Exception as e:
+            logger.error(f"Error in get_hashtag_stats: {e}")
+            return {'before': {}, 'after': {}}
     
+    async def get_hashtag_analysis(self, hashtag: str, news_date: datetime) -> Dict[str, Any]:
+        """
+        Analyze hashtag search volume around news date
+        
+        Args:
+            hashtag: The hashtag to analyze (without #)
+            news_date: The date of the news article
+            
+        Returns:
+            Dictionary with analysis results:
+            {
+                'before_stats': {
+                    'total_searches': int,
+                    'avg_daily': float,
+                    'max_daily': int,
+                    'max_date': str
+                },
+                'after_stats': {
+                    'total_searches': int,
+                    'avg_daily': float,
+                    'max_daily': int,
+                    'max_date': str
+                },
+                'impact_multiplier': float  # After searches / Before average
+            }
+        """
+        stats = await self.get_hashtag_stats(hashtag, news_date)
+        
+        def calculate_stats(period_data: Dict[str, int]) -> Dict[str, Any]:
+            if not period_data:
+                return {
+                    'total_searches': 0,
+                    'avg_daily': 0.0,
+                    'max_daily': 0,
+                    'max_date': None
+                }
+                
+            values = list(period_data.values())
+            max_idx = max(range(len(values)), key=values.__getitem__)
+            max_date = list(period_data.keys())[max_idx]
+            
+            return {
+                'total_searches': sum(values),
+                'avg_daily': sum(values) / len(values) if values else 0,
+                'max_daily': max(values) if values else 0,
+                'max_date': max_date
+            }
+        
+        before_stats = calculate_stats(stats['before'])
+        after_stats = calculate_stats(stats['after'])
+        
+        # Calculate impact multiplier (avoid division by zero)
+        before_avg = before_stats['avg_daily'] or 1  # Avoid division by zero
+        impact_multiplier = (after_stats['avg_daily'] / before_avg) if before_avg > 0 else 0
+        
+        return {
+            'before_stats': before_stats,
+            'after_stats': after_stats,
+            'impact_multiplier': round(impact_multiplier, 2)
+        }
+        
     async def get_current_price(self, ticker: str) -> Optional[float]:
         """Get current index price"""
         try:

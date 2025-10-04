@@ -21,20 +21,21 @@ async def test_hotness_scoring():
     """Test hotness scoring for a sample news item"""
     scorer = HotnessScorer()
     
+    # Use a historical date when MOEX was open (2025-10-01 14:30:00)
+    news_time = datetime(2025, 10, 1, 14, 30, 0)
+    
     # Test news item for Oil & Gas sector
     test_news = {
         'title': 'Газпром увеличил добычу газа на 10%',
         'text': 'Компания Газпром сообщила о рекордной добыче газа в этом квартале.',
         'source': 'Тестовый источник',
-        'date': (datetime.now() - timedelta(hours=1)).isoformat(),
+        'date': news_time.isoformat(),
         'tags': ['Нефть и газ']
     }
     
     logger.info("🧪 Testing hotness scoring...")
     logger.info(f"📰 News: {test_news['title']}")
     logger.info(f"🏷️ Sector: {test_news['tags'][0]}")
-    
-    news_time = datetime.fromisoformat(test_news['date'])
     metrics = await scorer.calculate_hotness(test_news, news_time)
     
     if metrics:

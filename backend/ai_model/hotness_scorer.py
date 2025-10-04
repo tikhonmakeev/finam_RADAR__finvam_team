@@ -43,64 +43,87 @@ class HotnessScorer:
             MarketMetrics with hotness scores
         """
         try:
+            logger.info(f"🔍 Starting hotness calculation for news: {news_item.get('title')}")
+            
             # Get primary sector
             sector = self._get_primary_sector(news_item)
             if not sector:
                 logger.warning(f"No sector found for news: {news_item.get('title')}")
                 return None
+            logger.info(f"📊 Found sector: {sector}")
             
             ticker = MOEX_INDEX_TICKERS.get(sector)
             if not ticker:
                 logger.warning(f"No ticker found for sector: {sector}")
                 return None
+            logger.info(f"📈 Using ticker: {ticker}")
             
             async with MarketDataClient() as client:
+                logger.info("🔧 Fetching baseline data...")
                 # Get baseline data (last 50 candles)
                 baseline_data = await client.get_index_data(ticker, '15min', 50)
                 if baseline_data is None:
+                    logger.warning("No baseline data returned")
                     return None
+                logger.info(f"📊 Got baseline data with {len(baseline_data)} rows")
                 
                 # Get post-news data
+                logger.info("🔧 Fetching post-news data...")
                 news_data = await self._get_post_news_data(client, ticker, news_time)
-                if not news_data:
+                if news_data is None or news_data.empty:
+                    logger.warning("No post-news data returned")
                     return None
+                logger.info(f"📈 Got post-news data with {len(news_data)} rows")
                 
                 # Calculate metrics
                 metrics = MarketMetrics()
                 
-                # 1. Immediate price change (15min)
-                metrics.immediate_price_change = await self._calculate_price_score(
-                    baseline_data, news_data, news_time, '15min'
-                )
-                
-                # 2. Sustained price change (1h)  
-                metrics.sustained_price_change = await self._calculate_price_score(
-                    baseline_data, news_data, news_time, '1h'
-                )
-                
-                # 3. Volume anomaly
-                metrics.volume_anomaly = self._calculate_volume_anomaly_score(
-                    baseline_data, news_data
-                )
-                
-                # 4. Volatility spike
-                metrics.volatility_spike = self._calculate_volatility_score(
-                    baseline_data, news_data
-                )
-                
-                # Calculate final score
-                metrics.hotness_score = (
-                    metrics.immediate_price_change * self.weights['immediate_price'] +
-                    metrics.sustained_price_change * self.weights['sustained_price'] + 
-                    metrics.volume_anomaly * self.weights['volume_anomaly'] +
-                    metrics.volatility_spike * self.weights['volatility_spike']
-                )
-                
-                logger.info(f"Hotness scores for {sector}: {metrics}")
-                return metrics
+                try:
+                    # 1. Immediate price change (15min)
+                    logger.info("📉 Calculating immediate price change...")
+                    metrics.immediate_price_change = await self._calculate_price_score(
+                        baseline_data, news_data, news_time, '15min'
+                    )
+                    logger.info(f"   Immediate price change: {metrics.immediate_price_change:.4f}")
+                    
+                    # 2. Sustained price change (1h)  
+                    logger.info("📈 Calculating sustained price change...")
+                    metrics.sustained_price_change = await self._calculate_price_score(
+                        baseline_data, news_data, news_time, '1h'
+                    )
+                    logger.info(f"   Sustained price change: {metrics.sustained_price_change:.4f}")
+                    
+                    # 3. Volume anomaly
+                    logger.info("📊 Calculating volume anomaly...")
+                    metrics.volume_anomaly = self._calculate_volume_anomaly_score(
+                        baseline_data, news_data
+                    )
+                    logger.info(f"   Volume anomaly: {metrics.volume_anomaly:.4f}")
+                    
+                    # 4. Volatility spike
+                    logger.info("⚡ Calculating volatility spike...")
+                    metrics.volatility_spike = self._calculate_volatility_score(
+                        baseline_data, news_data
+                    )
+                    logger.info(f"   Volatility spike: {metrics.volatility_spike:.4f}")
+                    
+                    # Calculate final score
+                    metrics.hotness_score = (
+                        metrics.immediate_price_change * self.weights['immediate_price'] +
+                        metrics.sustained_price_change * self.weights['sustained_price'] + 
+                        metrics.volume_anomaly * self.weights['volume_anomaly'] +
+                        metrics.volatility_spike * self.weights['volatility_spike']
+                    )
+                    
+                    logger.info(f"🎯 Final hotness score for {sector}: {metrics.hotness_score:.4f}")
+                    return metrics
+                    
+                except Exception as e:
+                    logger.error(f"Error in metric calculation: {e}", exc_info=True)
+                    return None
                 
         except Exception as e:
-            logger.error(f"Error calculating hotness: {e}")
+            logger.error(f"Error in calculate_hotness: {str(e)}\n{type(e).__name__}", exc_info=True)
             return None
     
     def _get_primary_sector(self, news_item: Dict) -> Optional[str]:
@@ -114,18 +137,68 @@ class HotnessScorer:
                                 news_time: datetime) -> Optional[pd.DataFrame]:
         """Get market data after news publication"""
         try:
+            logger.debug(f"🔍 Fetching post-news data for {ticker} after {news_time}")
+            
             # Get data for 2 hours after news
             data = await client.get_index_data(ticker, '15min', 20)  # ~5 hours of data
             
-            if data is not None:
-                # Filter data after news
-                post_news_data = data[data['begin'] >= news_time]
+            if data is None:
+                logger.warning(f"❌ No data returned for ticker: {ticker}")
+                return None
+                
+            if not isinstance(data, pd.DataFrame):
+                logger.error(f"❌ Expected DataFrame, got {type(data)} for ticker: {ticker}")
+                return None
+                
+            if data.empty:
+                logger.warning(f"⚠️ Empty DataFrame returned for ticker: {ticker}")
+                return None
+                
+            logger.debug(f"📊 Raw data columns: {data.columns.tolist()}")
+            logger.debug(f"📅 Data time range: {data['begin'].min()} to {data['begin'].max()}" if 'begin' in data.columns else "❌ No 'begin' column found")
+            
+            if 'begin' not in data.columns:
+                logger.error(f"❌ Missing 'begin' column in market data for {ticker}")
+                logger.error(f"Available columns: {data.columns.tolist()}")
+                return None
+            
+            try:
+                # Ensure 'begin' is datetime
+                data['begin'] = pd.to_datetime(data['begin'])
+                
+                # Log the time range we're working with
+                news_timestamp = pd.Timestamp(news_time)
+                logger.debug(f"🕒 News time: {news_timestamp}")
+                logger.debug(f"📅 Data range: {data['begin'].min()} to {data['begin'].max()}")
+                
+                # Create a mask for filtering
+                mask = data['begin'] >= news_timestamp
+                
+                if not mask.any():
+                    logger.warning(f"⚠️ No data points after news time: {news_time}")
+                    logger.debug(f"Earliest data point: {data['begin'].min()}")
+                    return None
+                
+                # Apply the mask to get post-news data
+                post_news_data = data.loc[mask].copy()
+                
+                if post_news_data.empty:
+                    logger.warning(f"⚠️ Filtered DataFrame is empty for ticker: {ticker}")
+                    return None
+                
+                logger.debug(f"✅ Found {len(post_news_data)} data points after news time")
+                logger.debug(f"📅 Post-news data range: {post_news_data['begin'].min()} to {post_news_data['begin'].max()}")
+                
                 return post_news_data
                 
-            return None
+            except Exception as e:
+                logger.error(f"❌ Error processing market data for {ticker}: {e}", exc_info=True)
+                logger.debug(f"Data types: {data.dtypes}")
+                logger.debug(f"Sample data: {data.head().to_dict()}")
+                return None
             
         except Exception as e:
-            logger.error(f"Error getting post-news data: {e}")
+            logger.error(f"❌ Error getting post-news data for {ticker}: {e}", exc_info=True)
             return None
     
     async def _calculate_price_score(self, baseline_data: pd.DataFrame, 
@@ -215,29 +288,59 @@ class HotnessScorer:
                                   news_data: pd.DataFrame) -> float:
         """Calculate volatility score"""
         try:
-            if len(baseline_data) < 5 or len(news_data) < 1:
+            # Check if we have enough data
+            if baseline_data.empty or news_data.empty or len(baseline_data) < 5 or len(news_data) < 1:
                 return 0.0
             
-            # Baseline volatility (average candle range)
-            baseline_ranges = (baseline_data['high'] - baseline_data['low']) / baseline_data['close']
+            # Ensure we're working with numeric values
+            baseline_high = pd.to_numeric(baseline_data['high'], errors='coerce').values
+            baseline_low = pd.to_numeric(baseline_data['low'], errors='coerce').values
+            baseline_close = pd.to_numeric(baseline_data['close'], errors='coerce').values
+            
+            # Filter out any NaN or inf values
+            valid_mask = ~(np.isnan(baseline_high) | np.isnan(baseline_low) | np.isnan(baseline_close) |
+                         np.isinf(baseline_high) | np.isinf(baseline_low) | (baseline_close == 0))
+            
+            if not np.any(valid_mask):
+                return 0.0
+                
+            baseline_high = baseline_high[valid_mask]
+            baseline_low = baseline_low[valid_mask]
+            baseline_close = baseline_close[valid_mask]
+            
+            # Calculate baseline ranges
+            baseline_ranges = (baseline_high - baseline_low) / baseline_close
             avg_baseline_range = np.mean(baseline_ranges)
             
-            # Current volatility (first candle after news)
-            current_candle = news_data.iloc[0]
-            current_range = (current_candle['high'] - current_candle['low']) / current_candle['close']
-            
-            if avg_baseline_range == 0:
+            if np.isnan(avg_baseline_range) or avg_baseline_range <= 0:
                 return 0.0
             
-            # Ratio of current to baseline volatility
-            volatility_ratio = current_range / avg_baseline_range
-            
-            # Normalize
-            k = 1.5  # At ratio 1.5, score = 0.6
-            score = (volatility_ratio - 1) / ((volatility_ratio - 1) + k)
-            
-            return max(min(score, 0.9999), 0.0)
+            # Get current candle data
+            current_candle = news_data.iloc[0]
+            try:
+                current_high = float(current_candle['high'])
+                current_low = float(current_candle['low'])
+                current_close = float(current_candle['close'])
+                
+                if current_close <= 0:
+                    return 0.0
+                    
+                current_range = (current_high - current_low) / current_close
+                
+                # Ratio of current to baseline volatility
+                volatility_ratio = current_range / avg_baseline_range
+                
+                # Normalize using a sigmoid-like function
+                k = 1.5  # At ratio 1.5, score = 0.6
+                score = (volatility_ratio - 1) / ((volatility_ratio - 1) + k)
+                
+                # Ensure score is within [0, 0.9999] range
+                return float(np.clip(score, 0.0, 0.9999))
+                
+            except (ValueError, TypeError, KeyError) as e:
+                logger.error(f"Error processing current candle data: {e}")
+                return 0.0
             
         except Exception as e:
-            logger.error(f"Error calculating volatility score: {e}")
+            logger.error(f"Error in _calculate_volatility_score: {e}", exc_info=True)
             return 0.0

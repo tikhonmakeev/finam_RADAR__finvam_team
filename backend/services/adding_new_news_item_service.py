@@ -1,6 +1,7 @@
 from ai_model.summarizer import summarize_text
-from main import vector_store
+from dependencies import vector_store
 from models.news_item import NewsItem
+from services.rag_service import compare_news
 
 
 class AddingNewNewsItemService:
@@ -12,6 +13,7 @@ class AddingNewNewsItemService:
         closest_news_item = vector_store.find_similar_news(summarize, top_k=1)
         if closest_news_item:
             await self._update_closest_news_item(news_item, closest_news_item)
+            await compare_news(news_item.content, closest_news_item.content)
         else:
             vector_store.index_news(news_item.id, news_item.content, news_item)
 

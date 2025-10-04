@@ -1,3 +1,5 @@
+import os
+
 from telethon import TelegramClient
 from datetime import datetime
 
@@ -7,11 +9,18 @@ from parsers.parser_base import ParserBase
 
 class TgParser(ParserBase):
     def __init__(self):
-        self.api_id = 123456
-        self.api_hash = "your_api_hash"
+        self.api_id = os.environ.get("tg_api_id")
+        self.api_hash = os.environ.get("tg_api_hash")
 
         self.client = TelegramClient("session", self.api_id, self.api_hash)
-        self.client.start()
+
+    async def connect(self):
+        if not self.client.is_connected():
+            await self.client.start()
+
+    async def disconnect(self):
+        if self.client.is_connected():
+            await self.client.disconnect()
 
     async def parse(self, start_date: datetime, end_date: datetime, **kwargs) -> dict[str, NewsItem] | None:
         if "channels_usernames" in kwargs:
@@ -22,13 +31,21 @@ class TgParser(ParserBase):
 
         # задаём дату, начиная с которой хотим сообщения
         start_date = datetime(2024, 9, 1)  # например, с 1 сентября 2024
-        res=dict()
+        res={}
         # выгружаем все сообщения от start_date до сегодня
         for channel in channels_usernames:
-            l = []
+            items: list[NewsItem] = []
             async for message in self.client.iter_messages(channel, offset_date=start_date, reverse=True):
-                l.append(message.id, message.date, message.text)
-                NewsItem(id=None,title=None,content=message.text,tags=None,createdAt=message.date,sources=message.id)
+                news_item = NewsItem(
+                    id=None,
+                    title=None,
+                    content=message.text,
+                    tags=None,
+                    createdAt=message.date,
+                    sources=str(message.id),
+                )
+                items.append(news_item)
 
-            res[channel] = l
-        return res
+            res[channel] = items
+
+            return res

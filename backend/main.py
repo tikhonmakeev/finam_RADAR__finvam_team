@@ -15,6 +15,14 @@ app = FastAPI(
     root_path="/api"
 )
 
+@app.on_event("startup")
+async def startup_event():
+    await tg_parser.connect()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await tg_parser.disconnect()
+
 routers = [
     news_router
 ]

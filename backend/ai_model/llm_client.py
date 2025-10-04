@@ -1,124 +1,91 @@
-import json
+"""
+Клиент для работы с локальной LLM через Ollama.
+"""
+import os
 import logging
-from typing import Optional
-import requests
-from requests.exceptions import RequestException
-from config import settings
+import aiohttp
+from typing import Optional, Dict, Any
 
 # Настройка логирования
-logging.basicConfig(level=settings.LOG_LEVEL)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Конфигурация для локального LLM (Ollama/Пользовательский HTTP)
-LLM_API_URL = getattr(settings, 'LLM_API_URL', 'http://127.0.0.1:11434')
-MODEL_NAME = getattr(settings, 'LLM_MODEL_NAME', 'qwen3:latest')
-
-
-class LocalLLMClient:
-    """Клиент для взаимодействия с локальной LLM-службой.
+class LLMClient:
+    """Клиент для работы с локальной LLM через Ollama."""
     
-    Поддерживает как API, совместимые с Ollama, так и с OpenAI.
-    """
-    
-    def __init__(self, base_url: str = None, model: str = None):
-        base_url = base_url or LLM_API_URL
-        model = model or MODEL_NAME
-        """Инициализация клиента LLM.
+    def __init__(self):
+        """Инициализация клиента Ollama."""
+        self.base_url = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api")
+        self.model = os.getenv("OLLAMA_MODEL", "phi4-mini:latest")  # Используем phi4-mini как модель по умолчанию
+        self.session = None
+        logger.info(f"Инициализирован клиент Ollama с моделью: {self.model}")
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Получение или создание сессии aiohttp."""
+        if self.session is None or self.session.closed:
+            self.session = aiohttp.ClientSession()
+        return self.session
+
+    async def __aenter__(self):
+        await self._get_session()
+        return self
         
-        Args:
-            base_url (str): Базовый URL сервера LLM API
-            model (str): Название используемой модели
-            
-        Инициализирует сессию для HTTP-запросов и сохраняет настройки подключения.
-        """
-        self.base_url = base_url.rstrip('/')  # Удаляем слэш в конце, если есть
-        self.model = model
-        self.session = requests.Session()  # Создаем сессию для повторного использования соединения
-        
-    def chat(
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
+
+    async def generate_response(
         self, 
         prompt: str, 
-        system: Optional[str] = None, 
-        max_tokens: int = 256,
-        temperature: float = 0.7
-    ) -> str:
-        """Отправка сообщения в LLM и получение ответа.
-        
-        Args:
-            prompt (str): Промпт пользователя
-            system (Optional[str]): Системное сообщение (опционально)
-            max_tokens (int): Максимальное количество токенов в ответе
-            temperature (float): Температура сэмплирования (0-1, где 0 - детерминированный вывод)
-            
-        Returns:
-            str: Сгенерированный текстовый ответ
-            
-        Raises:
-            RequestException: При ошибке HTTP-запроса
-            ValueError: При невозможности разобрать ответ сервера
-            
-        Пример использования:
-            client = LocalLLMClient()
-            response = client.chat("Привет, как дела?", temperature=0.5)
+        system_prompt: str = None, 
+        **kwargs
+    ) -> Optional[str]:
         """
-        # Подготавливаем сообщения для отправки
+        Генерация ответа с использованием локальной LLM.
+
+        Args:
+            prompt: Текст промпта
+            system_prompt: Дополнительный системный промпт
+            **kwargs: Дополнительные параметры
+
+        Returns:
+            Сгенерированный текст или None в случае ошибки
+        """
         messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
-        
-        # Формируем тело запроса
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": max(0, min(1, temperature))  # Ограничиваем температуру в диапазоне [0, 1]
-        }
-        
+
+        session = await self._get_session()
+
         try:
-            # Пытаемся отправить запрос к API, совместимому с Ollama
-            logger.debug(f"Отправка запроса к {self.base_url}/api/chat")
-            response = self.session.post(
-                f"{self.base_url}/api/chat",
-                json=payload,
-                timeout=500  # Увеличенный таймаут до 500 секунд
-            )
-            response.raise_for_status()  # Проверяем статус ответа
-            
-            # Пробуем распарсить JSON
-            try:
-                data = response.json()
-            except json.JSONDecodeError as e:
-                # Если не удалось распарсить JSON, возвращаем сырой текст
-                logger.warning(f"Не удалось распарсить JSON ответа. Сырой ответ: {response.text}")
-                return response.text.strip()
-            
-            # Обрабатываем различные форматы ответов от разных API
-            try:
-                if isinstance(data, dict):
-                    if 'message' in data and isinstance(data['message'], dict) and 'content' in data['message']:
-                        return str(data['message']['content']).strip()
-                    elif 'choices' in data and isinstance(data['choices'], list) and data['choices']:
-                        choice = data['choices'][0]
-                        if isinstance(choice, dict) and 'message' in choice and 'content' in choice['message']:
-                            return str(choice['message']['content']).strip()
-                        return str(choice).strip()
-                    elif 'text' in data:
-                        return str(data['text']).strip()
-                
-                # Если формат ответа не распознан, возвращаем весь ответ как строку
-                return str(data).strip()
-                
-            except Exception as e:
-                logger.warning(f"Ошибка при обработке ответа: {str(e)}. Ответ: {data}")
-                return str(data).strip()
-                
-        except RequestException as e:
-            # Обработка ошибок сети и HTTP
-            logger.error(f"Ошибка при запросе к API: {str(e)}")
-            raise
-        except json.JSONDecodeError as e:
-            # Обработка ошибок парсинга JSON
-            error_msg = f"Не удалось разобрать ответ сервера: {str(e)}"
-            logger.error(error_msg)
-            raise ValueError(error_msg) from e
+            data = {
+                "model": self.model,
+                "messages": messages,
+                "stream": False,
+                "options": {
+                    "temperature": kwargs.get('temperature', 0.1),
+                    "top_p": kwargs.get('top_p', 0.9),
+                    "max_tokens": kwargs.get('max_tokens', 1000)
+                }
+            }
+
+            async with session.post(
+                f"{self.base_url}/chat",
+                json=data,
+                timeout=aiohttp.ClientTimeout(total=120)
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(f"Ошибка Ollama API: {response.status} - {error_text}")
+                    return None
+
+                result = await response.json()
+                return result['message']['content'].strip()
+
+        except Exception as e:
+            logger.error(f"Ошибка при вызове Ollama API: {str(e)}", exc_info=True)
+            return None
+
+# Глобальный экземпляр для удобства использования
+llm_client = LLMClient()

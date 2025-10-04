@@ -1,9 +1,13 @@
 :host {
     display: flex;
-    flex-direction: column;
     flex: 1;
-    min-height: 0; 
-    overflow: hidden; 
+    min-height: 0;
+}
+
+.page-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
 }
 
 .news-feed__scroll-container {
@@ -21,3 +25,51 @@
     gap: 30px;
 }
 
+.filters {
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 30px;
+    position: sticky;
+    top: 0;
+    width: 200px;
+    background-color: #f6f6f6;
+    overflow-y: auto; 
+    flex-shrink: 0;
+    padding: 30px 20px;
+    color: #5e5e5e;
+}
+
+.filters__title {
+    font-size: 18px;
+}
+
+.filters__groups {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.filters__group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.filters__group-label {
+    font-size: 14px;
+}
+
+.filters__checkbox {
+    display: flex;
+    gap: 5px;
+    font-size: 12px;
+    align-items: flex-start;
+
+    span {
+        margin-top: -4px
+    }
+}
+
+.filters__submit {
+    font-weight: 500;
+}

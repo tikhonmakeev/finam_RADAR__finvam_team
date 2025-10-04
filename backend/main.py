@@ -3,22 +3,26 @@ import logging
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
-from db.vector_store import VectorStore
-from parsers.interfax_parser.run import InterfaxParser
 from routers.news_router import router as news_router
-from config import settings
+from dependencies import tg_parser
 
 logger = logging.getLogger(__name__)
 logger.info("Starting application...")
 
-vector_store = VectorStore()
-parser = InterfaxParser()
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
+    title="Finam RADAR backend",
     version="1.0.1",
-    root_path=settings.API_V1_STR
+    root_path="/api"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    await tg_parser.connect()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await tg_parser.disconnect()
 
 routers = [
     news_router
@@ -36,10 +40,4 @@ app.add_middleware(
 )
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level=settings.LOG_LEVEL.lower()
-    )
+    uvicorn.run(app)

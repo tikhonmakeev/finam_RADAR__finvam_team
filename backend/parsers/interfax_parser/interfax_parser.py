@@ -7,10 +7,9 @@ from scrapy.signalmanager import dispatcher
 from scrapy import signals
 
 from models.news_item import NewsItem
-from parsers.parser_base import ParserBase
 
 
-class InterfaxParser(ParserBase):
+class InterfaxParser:
     def parse(self, start_date: datetime, end_date: datetime) -> list[NewsItem]:
         """
         Parse news items from start_date to end_date.

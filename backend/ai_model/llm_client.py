@@ -1,124 +1,72 @@
+"""
+Клиент для взаимодействия с OpenAI API.
+"""
 import json
 import logging
-from typing import Optional
-import requests
-from requests.exceptions import RequestException
-from config import settings
+import os
+import asyncio
+from typing import Any, Dict, List, Optional, Union
+
+from openai import AsyncOpenAI
 
 # Настройка логирования
-logging.basicConfig(level=settings.LOG_LEVEL)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Конфигурация для локального LLM (Ollama/Пользовательский HTTP)
-LLM_API_URL = getattr(settings, 'LLM_API_URL', 'http://127.0.0.1:11434')
-MODEL_NAME = getattr(settings, 'LLM_MODEL_NAME', 'qwen3:latest')
-
-
-class LocalLLMClient:
-    """Клиент для взаимодействия с локальной LLM-службой.
+class LLMClient:
+    """Клиент для работы с OpenAI API."""
     
-    Поддерживает как API, совместимые с Ollama, так и с OpenAI.
-    """
-    
-    def __init__(self, base_url: str = None, model: str = None):
-        base_url = base_url or LLM_API_URL
-        model = model or MODEL_NAME
-        """Инициализация клиента LLM.
-        
-        Args:
-            base_url (str): Базовый URL сервера LLM API
-            model (str): Название используемой модели
+    def __init__(self):
+        """Инициализация клиента OpenAI."""
+        self.api_key = os.getenv('OPENAI_API_KEY')
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY не найден в переменных окружения")
             
-        Инициализирует сессию для HTTP-запросов и сохраняет настройки подключения.
-        """
-        self.base_url = base_url.rstrip('/')  # Удаляем слэш в конце, если есть
-        self.model = model
-        self.session = requests.Session()  # Создаем сессию для повторного использования соединения
-        
-    def chat(
+        self.client = AsyncOpenAI(api_key=self.api_key)
+        self.model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+        logger.info(f"Инициализирован клиент OpenAI с моделью: {self.model}")
+
+    async def generate_response(
         self, 
         prompt: str, 
-        system: Optional[str] = None, 
-        max_tokens: int = 256,
-        temperature: float = 0.7
-    ) -> str:
-        """Отправка сообщения в LLM и получение ответа.
+        system_prompt: str = None, 
+        **kwargs
+    ) -> Optional[str]:
+        """
+        Генерация ответа с использованием выбранного провайдера
         
         Args:
-            prompt (str): Промпт пользователя
-            system (Optional[str]): Системное сообщение (опционально)
-            max_tokens (int): Максимальное количество токенов в ответе
-            temperature (float): Температура сэмплирования (0-1, где 0 - детерминированный вывод)
+            prompt: Текст промпта
+            system_prompt: Дополнительный системный промпт
+            **kwargs: Дополнительные параметры для API
             
         Returns:
-            str: Сгенерированный текстовый ответ
-            
-        Raises:
-            RequestException: При ошибке HTTP-запроса
-            ValueError: При невозможности разобрать ответ сервера
-            
-        Пример использования:
-            client = LocalLLMClient()
-            response = client.chat("Привет, как дела?", temperature=0.5)
+            Сгенерированный текст или None в случае ошибки
         """
-        # Подготавливаем сообщения для отправки
         messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         
-        # Формируем тело запроса
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": max(0, min(1, temperature))  # Ограничиваем температуру в диапазоне [0, 1]
-        }
-        
         try:
-            # Пытаемся отправить запрос к API, совместимому с Ollama
-            logger.debug(f"Отправка запроса к {self.base_url}/api/chat")
-            response = self.session.post(
-                f"{self.base_url}/api/chat",
-                json=payload,
-                timeout=500  # Увеличенный таймаут до 500 секунд
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=kwargs.get('temperature', 0.1),
+                max_tokens=kwargs.get('max_tokens', 1000),
+                top_p=kwargs.get('top_p', 0.9),
+                frequency_penalty=kwargs.get('frequency_penalty', 0.0),
+                presence_penalty=kwargs.get('presence_penalty', 0.0),
+                stop=kwargs.get('stop', None)
             )
-            response.raise_for_status()  # Проверяем статус ответа
             
-            # Пробуем распарсить JSON
-            try:
-                data = response.json()
-            except json.JSONDecodeError as e:
-                # Если не удалось распарсить JSON, возвращаем сырой текст
-                logger.warning(f"Не удалось распарсить JSON ответа. Сырой ответ: {response.text}")
-                return response.text.strip()
+            if response and response.choices:
+                return response.choices[0].message.content.strip()
+            return None
             
-            # Обрабатываем различные форматы ответов от разных API
-            try:
-                if isinstance(data, dict):
-                    if 'message' in data and isinstance(data['message'], dict) and 'content' in data['message']:
-                        return str(data['message']['content']).strip()
-                    elif 'choices' in data and isinstance(data['choices'], list) and data['choices']:
-                        choice = data['choices'][0]
-                        if isinstance(choice, dict) and 'message' in choice and 'content' in choice['message']:
-                            return str(choice['message']['content']).strip()
-                        return str(choice).strip()
-                    elif 'text' in data:
-                        return str(data['text']).strip()
-                
-                # Если формат ответа не распознан, возвращаем весь ответ как строку
-                return str(data).strip()
-                
-            except Exception as e:
-                logger.warning(f"Ошибка при обработке ответа: {str(e)}. Ответ: {data}")
-                return str(data).strip()
-                
-        except RequestException as e:
-            # Обработка ошибок сети и HTTP
-            logger.error(f"Ошибка при запросе к API: {str(e)}")
-            raise
-        except json.JSONDecodeError as e:
-            # Обработка ошибок парсинга JSON
-            error_msg = f"Не удалось разобрать ответ сервера: {str(e)}"
-            logger.error(error_msg)
-            raise ValueError(error_msg) from e
+        except Exception as e:
+            logger.error(f"Ошибка при вызове OpenAI API: {str(e)}", exc_info=True)
+            return None
+
+# Создаем глобальный экземпляр для удобства использования
+llm_client = LLMClient()

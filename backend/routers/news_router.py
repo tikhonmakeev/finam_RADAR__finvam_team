@@ -6,7 +6,7 @@ from fastapi.params import Query
 
 from dependencies import tg_parser, interfax_parser, vector_store
 from models.news_filter import NewsFilter
-from models.news_item import NewsItem
+from models.news_item import NewsItem, Source
 
 from models.parsing_source_schema import ParsingSourceSchema
 
@@ -18,9 +18,9 @@ async def get_news_item_by_id():
         id="1",
         title="Test",
         content="Вечером город окутан мягким светом фонарей, отражающихся в лужах после недавнего дождя. Люди спешат по тротуарам, спрятавшись под зонтиками, а запах свежей земли и мокрого асфальта смешивается с ароматом свежесваренного кофе из маленьких уличных кафешек. Кажется, что время замедлилось, и каждый звук — шаг, смех, скрип двери — становится особенным.",
-        source="t.me/tikhonmakeev",
-        created_at=datetime.now(),
-        updated_at=datetime.now()
+        sources=Source(link="t.me/tikhonmakeev", addedAt=datetime.now()),
+        createdAt=datetime.now(),
+        hotnessScore=80,
     )
     # return vector_store.get_news_item_by_id()
 
@@ -42,12 +42,12 @@ async def get_news_items_by_filters(news_filter: NewsFilter = Query(None)):
         NewsItem(
             id=str(i),
             title=f"Test {i}",
-            content=base_sentences[i],
-            source="t.me/tikhonmakeev",
-            created_at=datetime.now(),
-            updated_at=datetime.now()
+            content=base_sentences[i - 1],
+            sources=[Source(link="t.me/tikhonmakeev", addedAt=datetime.now())],
+            createdAt=datetime.now(),
+            hotnessScore=80,
         )
-        for i in range(1, 11)  # генерируем 10 элементов
+        for i in range(1, 11)  # 10 элементов
     ]
     return news_items
     # return vector_store.get_news_by_filters(news_filter)

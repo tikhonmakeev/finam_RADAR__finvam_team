@@ -1,6 +1,12 @@
 from datetime import datetime
+from typing import NamedTuple
+
 from pydantic import BaseModel, Field, HttpUrl
 
+
+class Source(BaseModel):
+    link: HttpUrl
+    addedAt: datetime
 
 class NewsItem(BaseModel):
     id: int = Field(..., description="Уникальный идентификатор поста")
@@ -11,4 +17,4 @@ class NewsItem(BaseModel):
     timeline: list[datetime] = Field(default_factory=list, description="Хронологическая последовательность событий в формате ISO 8601")
     hotnessScore: float = Field(..., description="Оценка популярности поста")
     isConfirmed: bool = Field(..., description="Флаг, подтверждён ли пост официально")
-    sources: list[HttpUrl] = Field(default_factory=list, description="Источники информации, использованные для поста")
+    sources: list[Source] = Field(description="Источники информации, использованные для поста")

@@ -14,8 +14,9 @@ from ai_model.prompts.prompt_market_impact import SYSTEM_PROMPT_MARKET_IMPACT as
 from ai_model.prompts.prompt_comparison import SYSTEM_PROMPT_COMPARISON as SYSTEM_PROMPT_COMPARISON
 from ai_model.prompts.prompt_style_news import SYSTEM_PROMPT as SYSTEM_PROMPT_STYLE_NEWS
 
-# Загружаем переменные окружения
-load_dotenv()
+# Загружаем переменные окружения из корня проекта, перекрывая переменные окружения
+root_env_path = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(dotenv_path=root_env_path, override=True)
 
 # Добавляем корень проекта в PYTHONPATH
 project_root = str(Path(__file__).parent.parent)
@@ -23,6 +24,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from ai_model.news_processor import NewsProcessor, process_news_batch
+from ai_model.llm_client import llm_client as global_llm_client
 
 
 # Настройка логирования
@@ -36,8 +38,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Получаем URL из .env
-LLM_API_URL = os.getenv('LLM_API_URL', 'http://127.0.0.1:11434')
+# Провайдер LLM
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openrouter').lower()
+LLM_API_URL = os.getenv('LLM_API_URL', 'http://127.0.0.1:11434')  # используется только для ollама
 
 def timeout(seconds=500):
     """Декоратор для установки таймаута на асинхронные функции."""
@@ -54,7 +57,6 @@ def timeout(seconds=500):
 
 async def test_individual_prompts():
     """Тестирование каждого промпта отдельно используя ваши файлы"""
-    import requests
 
     logger.info("\n" + "="*80)
     logger.info("ТЕСТИРОВАНИЕ ВСЕХ ПРОМПТОВ ИЗ ФАЙЛОВ")
@@ -101,8 +103,8 @@ async def test_individual_prompts():
         }
     }
 
-    # Выбираем модель
-    model_name = "phi4-mini:latest"  # Используем быструю модель
+    # Выбираем модель (только для ollama пути)
+    model_name = "phi4-mini:latest"
 
     for prompt_name, prompt_data in PROMPTS.items():
         logger.info(f"\n🧪 ТЕСТИРУЕМ ПРОМПТ: {prompt_name.upper()}")
@@ -122,59 +124,66 @@ async def test_individual_prompts():
                 else:
                     user_prompt = f"{test_input}"
 
-                full_prompt = f"{system_prompt}\n\n{user_prompt}"
+                if LLM_PROVIDER == 'ollama':
+                    import requests
+                    full_prompt = f"{system_prompt}\n\n{user_prompt}"
+                    response = requests.post(
+                        f"{LLM_API_URL}/api/generate",
+                        json={
+                            "model": model_name,
+                            "prompt": full_prompt,
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.0,
+                                "num_predict": 30,
+                                "top_k": 1
+                            }
+                        },
+                        timeout=500
+                    )
 
-                response = requests.post(
-                    f"{LLM_API_URL}/api/generate",
-                    json={
-                        "model": model_name,
-                        "prompt": full_prompt,
-                        "stream": False,
-                        "options": {
-                            "temperature": 0.0,
-                            "num_predict": 30,
-                            "top_k": 1
-                        }
-                    },
-                    timeout=500  # Increased timeout to 500 seconds
-                )
-
-                if response.status_code == 200:
-                    result = response.json()
-                    response_text = result.get('response', '').strip()
-
-                    # Очистка ответа для разных типов промптов
-                    if prompt_name in ["tagger", "market_impact", "comparison"]:
-                        # Для строгих промптов берем первую строку и очищаем
-                        cleaned_response = response_text.split('\n')[0].strip()
-                        cleaned_response = cleaned_response.replace('"', '').replace("'", "").replace('"""', '')
+                    if response.status_code == 200:
+                        result = response.json()
+                        response_text = result.get('response', '').strip()
                     else:
-                        # Для нормализации оставляем как есть, но обрезаем длинный текст
-                        cleaned_response = response_text[:200] + "..." if len(response_text) > 200 else response_text
-
-                    logger.info(f"Тест {i}:")
-                    logger.info(f"   Вход: {test_input}")
-                    logger.info(f"   Ожидалось: {expected}")
-                    logger.info(f"   Получено: '{cleaned_response}'")
-
-                    # Проверка результатов
-                    if prompt_name == "style_normalization":
-                        # Для нормализации проверяем что ответ не пустой и короче оригинала
-                        if cleaned_response and len(cleaned_response) > 5 and len(cleaned_response) < len(str(test_input)):
-                            logger.info("   ✅ ОК (текст нормализован)")
-                            success_count += 1
-                        else:
-                            logger.warning("   ⚠️ Возможно проблема с нормализацией")
-                    else:
-                        # Для строгих промптов проверяем совпадение
-                        if expected.lower() in cleaned_response.lower():
-                            logger.info("   ✅ ОК")
-                            success_count += 1
-                        else:
-                            logger.warning("   ⚠️ Не совпадает с ожидаемым")
+                        logger.error(f"   ❌ Ошибка API: {response.status_code}")
+                        continue
 
                 else:
-                    logger.error(f"   ❌ Ошибка API: {response.status_code}")
+                    # Используем OpenRouter через универсальный клиент
+                    response_text = await global_llm_client.generate_response(
+                        prompt=user_prompt,
+                        system_prompt=system_prompt,
+                        max_tokens=512,
+                        temperature=0.0,
+                        top_p=0.9
+                    ) or ""
+
+                # Очистка ответа для разных типов промптов
+                if prompt_name in ["tagger", "market_impact", "comparison"]:
+                    cleaned_response = response_text.split('\n')[0].strip()
+                    cleaned_response = cleaned_response.replace('"', '').replace("'", "").replace('"""', '')
+                else:
+                    cleaned_response = response_text[:200] + "..." if len(response_text) > 200 else response_text
+
+                logger.info(f"Тест {i}:")
+                logger.info(f"   Вход: {test_input}")
+                logger.info(f"   Ожидалось: {expected}")
+                logger.info(f"   Получено: '{cleaned_response}'")
+
+                # Проверка результатов
+                if prompt_name == "style_normalization":
+                    if cleaned_response and len(cleaned_response) > 5 and len(cleaned_response) < len(str(test_input)):
+                        logger.info("   ✅ ОК (текст нормализован)")
+                        success_count += 1
+                    else:
+                        logger.warning("   ⚠️ Возможно проблема с нормализацией")
+                else:
+                    if expected.lower() in cleaned_response.lower():
+                        logger.info("   ✅ ОК")
+                        success_count += 1
+                    else:
+                        logger.warning("   ⚠️ Не совпадает с ожидаемым")
 
             except Exception as e:
                 logger.error(f"   ❌ Ошибка: {e}")
@@ -326,7 +335,11 @@ async def main():
     logger.info("\n🎉 ТЕСТИРОВАНИЕ ЗАВЕРШЕНО!")
 
 async def test_ollama_connection():
-    """Проверка подключения к Ollama"""
+    """Проверка подключения к Ollama. Пропускается если провайдер не ollama."""
+    if LLM_PROVIDER != 'ollama':
+        logger.info("🔍 Пропускаем проверку Ollama (используется не Ollama провайдер)")
+        return True
+
     import requests
 
     logger.info("🔍 Проверка подключения к Ollama...")
@@ -337,7 +350,6 @@ async def test_ollama_connection():
             model_names = [m['name'] for m in models]
             logger.info(f"✅ Ollama доступен. Модели: {model_names}")
 
-            # Рекомендуем быструю модель
             fast_models = ['phi4-mini:latest', 'llama3.2:1b', 'llama3.2:3b']
             available_fast = [model for model in model_names if any(fm in model for fm in fast_models)]
 
@@ -356,9 +368,9 @@ async def test_ollama_connection():
 
 if __name__ == "__main__":
     try:
-        # Сначала проверяем подключение к Ollama
+        # Сначала проверяем подключение к Ollama, если он выбран
         if not asyncio.run(test_ollama_connection()):
-            logger.error("❌ Не удалось подключиться к Ollama. Проверьте запущен ли сервер.")
+            logger.error("❌ Не удалось подключиться к Ollama. Проверьте запущен ли сервер или переключитесь на OpenRouter (LLM_PROVIDER=openrouter).")
             exit(1)
 
         # Затем запускаем основной тест

@@ -1,6 +1,7 @@
 import os
 import logging
 import httpx
+from openai import OpenAI
 from backend.ai_model.prompts.prompt_comparison import SYSTEM_PROMPT_COMPARISON as PROMPT_TEMPLATE
 
 # Настройка логирования
@@ -10,8 +11,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# URL локальной LLM (например, Ollama или vLLM)
-LLM_URL = os.getenv("LLM_URL", "http://localhost:8001/v1/chat/completions")
+# Настройки OpenRouter
+OPENROUTER_API_KEY = os.getenv("MARSH_API_KEY")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+MODEL_NAME = os.getenv("OPENROUTER_MODEL", "google/gemini-2.5-flash")
+
+# Инициализация клиента OpenRouter
+client = OpenAI(
+    base_url=OPENROUTER_BASE_URL,
+    api_key=OPENROUTER_API_KEY,
+)
 
 async def compare_news(news1: str, news2: str) -> bool:
     """
@@ -26,7 +35,7 @@ async def compare_news(news1: str, news2: str) -> bool:
         
     Raises:
         ValueError: Если не удалось разобрать ответ от модели
-        httpx.RequestError: При ошибке HTTP-запроса
+        Exception: При других ошибках
     """
     prompt = PROMPT_TEMPLATE.format(
         news1=news1.strip(),
@@ -34,41 +43,31 @@ async def compare_news(news1: str, news2: str) -> bool:
     )
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                LLM_URL,
-                headers={"Content-Type": "application/json"},
-                json={
-                    "model": "qwen2.5:7b",
-                    "messages": [
-                        {"role": "system", "content": "Ты эксперт по анализу новостей."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    "temperature": 0.2,
-                    "max_tokens": 10  # Уменьшаем, так как ответ теперь короче
-                }
-            )
-            response.raise_for_status()
-            
-            data = response.json()
-            output = data["choices"][0]["message"]["content"].strip().lower()
-            
-            if output == 'True':
-                return True
-            elif output == 'False':
-                return False
-            else:
-                logger.warning(f"Неожиданный ответ от модели: '{output}'. Ожидалось 'Да' или 'Нет'.")
-                # В случае неожиданного ответа считаем, что новости разные
-                return False
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": "Ты эксперт по анализу новостей."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2,
+            max_tokens=10,
+            extra_headers={
+                "HTTP-Referer": "https://github.com/tikhonmakeev/finam_RADAR__finvam_team",
+                "X-Title": "Finam RADAR"
+            }
+        )
+        
+        output = response.choices[0].message.content.strip().lower()
+        
+        if output == 'true':
+            return True
+        elif output == 'false':
+            return False
+        else:
+            logger.warning(f"Unexpected model output: {output}")
+            return False
                 
-    except httpx.HTTPStatusError as e:
-        logger.error(f"Ошибка HTTP при запросе к LLM: {e}")
-        raise
-    except (KeyError, IndexError) as e:
-        logger.error(f"Не удалось разобрать ответ от модели: {e}")
-        raise ValueError("Неверный формат ответа от модели") from e
     except Exception as e:
-        logger.error(f"Неизвестная ошибка: {e}")
+        logger.error(f"Ошибка при запросе к OpenRouter: {str(e)}")
         raise
 

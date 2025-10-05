@@ -12,7 +12,7 @@ class OpenRouterClient:
     def __init__(self):
         self.api_key = os.getenv('MARSH_API_KEY')
         self.base_url = os.getenv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
-        self.model = os.getenv('OPENROUTER_MODEL', 'anthropic/claude-3.5-sonnet')
+        self.model = os.getenv('OPENROUTER_MODEL', 'google/gemini-2.5-flash')
         
         if not self.api_key:
             raise ValueError("MARSH_API_KEY not found in environment variables")

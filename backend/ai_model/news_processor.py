@@ -201,10 +201,12 @@ class NewsProcessor:
             previous_news = [item['style_normalized'] for item in self.news_history[-3:]]
             comparison_results = await self.compare_with_previous(normalized_text, previous_news)
             result['comparison'] = comparison_results
-            
+
             # 5. Обновление сводки
-            last_summary = self.news_history[-1]['summary'] if self.news_history else ""
-            updated_summary = await self.update_summary(last_summary, normalized_text)
+            # Переносим прошлую сводку ТОЛЬКО если текущая новость относится к тому же событию
+            carry_over = any(r.get('is_same_event') for r in (comparison_results or []))
+            existing_summary = self.news_history[-1]['summary'] if (carry_over and self.news_history) else ""
+            updated_summary = await self.update_summary(existing_summary, normalized_text)
             result['summary'] = updated_summary
             
             # Сохраняем в историю

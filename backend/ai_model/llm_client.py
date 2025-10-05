@@ -25,12 +25,17 @@ class LLMClient:
     
     def __init__(self):
         """Инициализация клиента с выбранным провайдером."""
-        self.provider = os.getenv('LLM_PROVIDER', 'ollama').lower()
-        self.timeout = 30  # Таймаут в секундах
+        raw_provider = os.getenv('LLM_PROVIDER', 'openrouter') or 'openrouter'
+        self.provider = str(raw_provider).strip().lower()
+        self.timeout = 300  # Таймаут в секундах
         self.client = None
         self._model_checked = False
         
         # Инициализация выбранного провайдера
+        # Если задан ключ OpenRouter, форсируем провайдера openrouter
+        if os.getenv('MARSH_API_KEY'):
+            self.provider = 'openrouter'
+        
         if self.provider == 'openrouter':
             try:
                 self.client = OpenRouterClient()

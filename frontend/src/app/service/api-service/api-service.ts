@@ -9,7 +9,7 @@ export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = 'http://158.160.195.186/api';
 
-  getAllNews(filters: {
+  getAllNews(filters?: {
     tags: string[];
     onlyVerified: boolean;
   }): Observable<News[]> {

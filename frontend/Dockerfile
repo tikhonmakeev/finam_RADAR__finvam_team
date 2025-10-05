@@ -11,9 +11,6 @@ RUN npm run build
 # ---------- STAGE 2: nginx ----------
 FROM nginx:alpine
 
-# Удаляем дефолтный конфиг nginx
-RUN rm /etc/nginx/conf.d/default.conf
-
 # Копируем свой конфиг
 COPY nginx.conf /etc/nginx/conf.d
 

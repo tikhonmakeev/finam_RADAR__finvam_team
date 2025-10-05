@@ -11,8 +11,7 @@ logger.info("Starting application...")
 
 app = FastAPI(
     title="Finam RADAR backend",
-    version="1.0.1",
-    root_path="/api"
+    version="1.0.1"
 )
 
 @app.on_event("startup")

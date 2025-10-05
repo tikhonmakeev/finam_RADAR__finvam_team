@@ -13,8 +13,9 @@ export class ApiService {
     tags: string[];
     onlyVerified: boolean;
   }): Observable<News[]> {
-    let apiUrl = `${this.baseUrl}/news/`;
+    let apiUrl = `${this.baseUrl}/news`;
     if (!filters) {
+      apiUrl += apiUrl + '/';
       return this.http.get<News[]>(apiUrl);
     }
 
@@ -29,12 +30,14 @@ export class ApiService {
       .join('&');
 
     apiUrl += queryParams ? `?${queryParams}` : '';
-
+    console.log(`apiUrl: &{apiUrl + '/'}`)
+    apiUrl = apiUrl + '/';
     return this.http.get<News[]>(apiUrl);
   }
 
   getNews(id: string): Observable<News> {
     const apiUrl = `${this.baseUrl}/news/${id}/`;
+    apiUrl = apiUrl + '/';
     return this.http.get<News>(apiUrl);
   }
 }

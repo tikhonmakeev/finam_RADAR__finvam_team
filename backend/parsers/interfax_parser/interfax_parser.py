@@ -42,4 +42,4 @@ class InterfaxParser:
         return scraped_data
 
 if __name__ == "__main__":
-    print(InterfaxParser().parse((datetime.now() - timedelta(days=1)), datetime.now()))
+    print(InterfaxParser().parse((datetime.now() - timedelta(days=10)).date().strftime("%Y/%m/%d"), datetime.now().date().strftime("%Y/%m/%d")))

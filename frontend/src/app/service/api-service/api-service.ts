@@ -13,7 +13,7 @@ export class ApiService {
     tags: string[];
     onlyVerified: boolean;
   }): Observable<News[]> {
-    let apiUrl = `${this.baseUrl}/news`;
+    let apiUrl = `${this.baseUrl}/news/`;
     if (!filters) {
       return this.http.get<News[]>(apiUrl);
     }
@@ -34,7 +34,7 @@ export class ApiService {
   }
 
   getNews(id: string): Observable<News> {
-    const apiUrl = `${this.baseUrl}/news/${id}`;
+    const apiUrl = `${this.baseUrl}/news/${id}/`;
     return this.http.get<News>(apiUrl);
   }
 }
